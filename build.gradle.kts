@@ -1,5 +1,6 @@
 plugins {
     id("java")
+    id("application")
 }
 
 group = "com.itsgabeh"
@@ -8,6 +9,10 @@ version = "1.0-SNAPSHOT"
 java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
+}
+
+application {
+    mainClass = "com.itsgabeh.Main"
 }
 
 repositories {
