@@ -4,16 +4,22 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.AffineTransform;
-import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferStrategy;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 class Game implements Runnable
 {
+    static class Asteroid
+    {
+        double asteroidX = 0, asteroidY = 0;
+        boolean isActive = false;
+    }
+
     static class Bullet
     {
         double bulletX = 0, bulletY = 0;
@@ -21,22 +27,42 @@ class Game implements Runnable
         boolean isActive = false;
     }
 
-    private final Canvas canvas;
-    private final GameInput gameInput;
-    private final BlockingQueue<String> queue;
+    // Game constants
+    private final int DUKES_WIDTH = 25, DUKES_HEIGHT = 25;
+    private final int VIEWPORT_WIDTH = 720, VIEWPORT_HEIGHT = 480;
+    private final int BULLETS_POOL_CAPACITY = 50;
+    private final int ASTEROIDS_POOL_CAPACITY = 10;
+    private final int CORE_X = VIEWPORT_WIDTH / 2, CORE_Y = VIEWPORT_HEIGHT / 2;
+    private final int CORE_WIDTH = 50, CORE_HEIGHT = 50;
 
-    private boolean isRunning = false;
+    // Dukes variables
     private float dukesX = 0, dukesY = 0;
     private float rotationAngle = 0;
 
+    private final Canvas canvas;
+    private final GameInput gameInput;
+    private final BlockingQueue<String> queue;
+    private boolean isRunning = false;
     // TODO: check optimizations of Data-Oriented Design
-    private final Bullet[] bullets = new Bullet[50];
+    private final Bullet[] bullets = new Bullet[BULLETS_POOL_CAPACITY];
+    private final Asteroid[] asteroids = new Asteroid[ASTEROIDS_POOL_CAPACITY];
 
     public Game()
     {
-        for (int i = 0; i < 50; i++)
+        for (int i = 0; i < BULLETS_POOL_CAPACITY; i++)
         {
             bullets[i] = new Bullet();
+        }
+
+        Random r = new Random();
+
+        for (int i = 0; i < ASTEROIDS_POOL_CAPACITY; i++)
+        {
+            asteroids[i] = new Asteroid();
+            asteroids[i].asteroidX = Math.abs(r.nextInt() % VIEWPORT_WIDTH);
+            asteroids[i].asteroidY = Math.abs(r.nextInt() % VIEWPORT_HEIGHT);
+            IO.println(asteroids[i].asteroidX + " " + asteroids[i].asteroidY);
+            asteroids[i].isActive = true;
         }
 
         queue = new LinkedBlockingQueue<>(200);
@@ -47,7 +73,7 @@ class Game implements Runnable
         canvas.addKeyListener(gameInput);
         canvas.addMouseMotionListener(gameInput);
 
-        canvas.setPreferredSize(new Dimension(640, 360));
+        canvas.setPreferredSize(new Dimension(VIEWPORT_WIDTH, VIEWPORT_HEIGHT));
 
         mainFrame.add(canvas);
         mainFrame.pack();
@@ -103,11 +129,11 @@ class Game implements Runnable
         // Get the direction vector pointing to mouse direction
         // Mouse Pos - Dukes Pos = Direction Vector (starting from 0,0)
         // Applying atan2 calculates the angle 0 within X line and the point (x,y)
-        float mouseDistanceX = gameInput.mouseX - (dukesX + 25);
-        float mouseDistanceY = gameInput.mouseY - (dukesY + 25);
+        float mouseDistanceX = gameInput.mouseX - (dukesX + (float) DUKES_WIDTH / 2);
+        float mouseDistanceY = gameInput.mouseY - (dukesY + (float) DUKES_HEIGHT / 2);
         rotationAngle = (float) Math.atan2(mouseDistanceY, mouseDistanceX);
 
-        boolean isShooting = gameInput.isPressed(KeyEvent.VK_E);
+        boolean isShooting = gameInput.isPressed(KeyEvent.VK_SPACE);
         if (isShooting)
         {
             // TODO: check optimizations of Data-Oriented Design
@@ -117,8 +143,8 @@ class Game implements Runnable
                 Bullet b = bullet.get();
                 b.isActive = true;
                 // Spawn bullets at dukes pos
-                b.bulletX = dukesX + 25;
-                b.bulletY = dukesY + 25;
+                b.bulletX = dukesX + (double) DUKES_WIDTH / 2;
+                b.bulletY = dukesY + (double) DUKES_HEIGHT / 2;
                 // Cos and Sin of an angle 0 gives the x and y components of the vector A with angle 0
                 b.directionX = Math.cos(rotationAngle);
                 b.directionY = Math.sin(rotationAngle);
@@ -129,7 +155,17 @@ class Game implements Runnable
         List<Bullet> activeBullets = Arrays.stream(bullets).filter(b -> b.isActive).toList();
         for (Bullet b : activeBullets)
         {
-            if (b.bulletX < 0 || b.bulletX > 640 || b.bulletY < 0 || b.bulletY > 360) b.isActive = false;
+//            // Check collisions on asteroids
+//            // TODO: optimize along Data-Oriented Design
+//            for (Asteroid as : asteroids)
+//            {
+//                if (as.isActive)
+//                {
+//                    b.isActive = !(Math.sqrt(Math.pow(b.bulletX - as.asteroidX, 2) + Math.pow(b.bulletY - as.asteroidY, 2)) <= 20);
+//                }
+//            }
+
+            if (b.bulletX < 0 || b.bulletX > VIEWPORT_WIDTH || b.bulletY < 0 || b.bulletY > VIEWPORT_HEIGHT) b.isActive = false;
             else {
                 b.bulletX += b.directionX * 25;
                 b.bulletY += b.directionY * 25;
@@ -137,11 +173,11 @@ class Game implements Runnable
         }
 
         // Debug Log
-        try {
-            queue.put("X: " + dukesX + " Y:" + dukesY + " Mouse " + gameInput.mouseX + " " + gameInput.mouseY);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+//        try {
+//            queue.put("X: " + dukesX + " Y:" + dukesY + " Mouse " + gameInput.mouseX + " " + gameInput.mouseY);
+//        } catch (InterruptedException e) {
+//            throw new RuntimeException(e);
+//        }
     }
 
     private void render()
@@ -157,17 +193,25 @@ class Game implements Runnable
         g2d.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
 
         g2d.setColor(new Color(15457202));
-        g2d.rotate(rotationAngle, dukesX + ((double) 50 /2), dukesY + ((double) 50 /2));
-//        Rectangle2D.Float cube = new Rectangle2D.Float(dukesX, dukesY, 50, 50);
-//        g2d.fill(cube);
-        g2d.fillOval((int) dukesX, (int) dukesY, 50, 50);
+        g2d.rotate(rotationAngle, dukesX + ((double) DUKES_WIDTH / 2), dukesY + ((double) DUKES_HEIGHT / 2));
+        g2d.fillOval((int) dukesX, (int) dukesY, DUKES_WIDTH, DUKES_HEIGHT);
         g2d.setTransform(originalTransform);
 
+        g2d.fillRoundRect(CORE_X - (CORE_WIDTH / 2), CORE_Y - (CORE_HEIGHT / 2), CORE_WIDTH, CORE_HEIGHT, 1, 1);
+
         // TODO: check optimizations of Data-Oriented Design
+        g2d.setColor(new Color(8627608));
         List<Bullet> activeBullets = Arrays.stream(bullets).filter(b -> b.isActive).toList();
         for (Bullet b : activeBullets)
         {
             g2d.fillRect((int) b.bulletX, (int) b.bulletY, 2, 2);
+        }
+
+        g2d.setColor(new Color(6708308));
+        List<Asteroid> activeAsteroids = Arrays.stream(asteroids).filter(a -> a.isActive).toList();
+        for (Asteroid a : activeAsteroids)
+        {
+            g2d.fillOval((int) a.asteroidX, (int) a.asteroidY, 50, 50);
         }
 
         g2d.dispose();
