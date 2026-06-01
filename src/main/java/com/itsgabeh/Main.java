@@ -59,8 +59,8 @@ class Game implements Runnable
         for (int i = 0; i < ASTEROIDS_POOL_CAPACITY; i++)
         {
             asteroids[i] = new Asteroid();
-            asteroids[i].asteroidX = Math.abs(r.nextInt() % VIEWPORT_WIDTH);
-            asteroids[i].asteroidY = Math.abs(r.nextInt() % VIEWPORT_HEIGHT);
+            asteroids[i].asteroidX = r.nextInt(VIEWPORT_WIDTH - 50);
+            asteroids[i].asteroidY = r.nextInt(VIEWPORT_HEIGHT - 50);
             IO.println(asteroids[i].asteroidX + " " + asteroids[i].asteroidY);
             asteroids[i].isActive = true;
         }
@@ -143,8 +143,8 @@ class Game implements Runnable
                 Bullet b = bullet.get();
                 b.isActive = true;
                 // Spawn bullets at dukes pos
-                b.bulletX = dukesX + (double) DUKES_WIDTH / 2;
-                b.bulletY = dukesY + (double) DUKES_HEIGHT / 2;
+                b.bulletX = dukesX;
+                b.bulletY = dukesY;
                 // Cos and Sin of an angle 0 gives the x and y components of the vector A with angle 0
                 b.directionX = Math.cos(rotationAngle);
                 b.directionY = Math.sin(rotationAngle);
@@ -152,25 +152,53 @@ class Game implements Runnable
         }
 
         // TODO: check optimizations of Data-Oriented Design
-        List<Bullet> activeBullets = Arrays.stream(bullets).filter(b -> b.isActive).toList();
-        for (Bullet b : activeBullets)
+        for (Bullet bullet : bullets)
         {
-//            // Check collisions on asteroids
-//            // TODO: optimize along Data-Oriented Design
-//            for (Asteroid as : asteroids)
-//            {
-//                if (as.isActive)
-//                {
-//                    b.isActive = !(Math.sqrt(Math.pow(b.bulletX - as.asteroidX, 2) + Math.pow(b.bulletY - as.asteroidY, 2)) <= 20);
-//                }
-//            }
-
-            if (b.bulletX < 0 || b.bulletX > VIEWPORT_WIDTH || b.bulletY < 0 || b.bulletY > VIEWPORT_HEIGHT) b.isActive = false;
+            if (!bullet.isActive) continue;
+            if (bullet.bulletX < 0 || bullet.bulletX > VIEWPORT_WIDTH || bullet.bulletY < 0 || bullet.bulletY > VIEWPORT_HEIGHT) bullet.isActive = false;
             else {
-                b.bulletX += b.directionX * 25;
-                b.bulletY += b.directionY * 25;
+                bullet.bulletX += bullet.directionX * 25;
+                bullet.bulletY += bullet.directionY * 25;
+            }
+
+            // Bullets can collide with asteroids
+            // Check if bullet distance from the asteroid center
+            for (Asteroid as : asteroids)
+            {
+                if (as.isActive)
+                {
+                    if (Math.sqrt(Math.pow(bullet.bulletX - as.asteroidX, 2) + Math.pow(bullet.bulletY - as.asteroidY, 2)) <= 25)
+                    {
+                        bullet.isActive = false;
+                    }
+                }
+            }
+
+            // bullets can collide with the core
+            if ((Math.sqrt(Math.pow(bullet.bulletX - CORE_X, 2) + Math.pow(bullet.bulletY - CORE_Y, 2))) <= ((double) CORE_WIDTH / 2))
+            {
+                bullet.isActive = false;
             }
         }
+
+        // Move each active asteroid towards the center but not at all
+        for (Asteroid asteroid : asteroids)
+        {
+            if (!asteroid.isActive) continue;
+            float dirX = (float) (((float) CORE_X) - asteroid.asteroidX);
+            float dirY = (float) (((float) CORE_Y) - asteroid.asteroidY);
+            float mag = (float) Math.sqrt((dirX * dirX) + (dirY * dirY));
+            dirX = mag > 0 ? dirX / mag : dirX;
+            dirY = mag > 0 ? dirY / mag : dirY;
+
+
+            if (Math.sqrt(Math.pow(asteroid.asteroidX - CORE_X, 2) + Math.pow(asteroid.asteroidY - CORE_Y, 2)) > 200)
+            {
+                asteroid.asteroidX += dirX;
+                asteroid.asteroidY += dirY;
+            }
+        }
+
 
         // Debug Log
 //        try {
@@ -193,26 +221,39 @@ class Game implements Runnable
         g2d.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
 
         g2d.setColor(new Color(15457202));
-        g2d.rotate(rotationAngle, dukesX + ((double) DUKES_WIDTH / 2), dukesY + ((double) DUKES_HEIGHT / 2));
-        g2d.fillOval((int) dukesX, (int) dukesY, DUKES_WIDTH, DUKES_HEIGHT);
+        g2d.rotate(rotationAngle, dukesX, dukesY);
+        g2d.fillOval((int) dukesX - (DUKES_WIDTH / 2), (int) dukesY - (DUKES_HEIGHT / 2), DUKES_WIDTH, DUKES_HEIGHT);
         g2d.setTransform(originalTransform);
 
         g2d.fillRoundRect(CORE_X - (CORE_WIDTH / 2), CORE_Y - (CORE_HEIGHT / 2), CORE_WIDTH, CORE_HEIGHT, 1, 1);
 
         // TODO: check optimizations of Data-Oriented Design
         g2d.setColor(new Color(8627608));
-        List<Bullet> activeBullets = Arrays.stream(bullets).filter(b -> b.isActive).toList();
-        for (Bullet b : activeBullets)
+        for (Bullet bullet : bullets)
         {
-            g2d.fillRect((int) b.bulletX, (int) b.bulletY, 2, 2);
+            if (!bullet.isActive) continue;
+            g2d.fillRect((int) bullet.bulletX, (int) bullet.bulletY, 2, 2);
         }
 
         g2d.setColor(new Color(6708308));
         List<Asteroid> activeAsteroids = Arrays.stream(asteroids).filter(a -> a.isActive).toList();
         for (Asteroid a : activeAsteroids)
         {
-            g2d.fillOval((int) a.asteroidX, (int) a.asteroidY, 50, 50);
+            g2d.fillOval((int) a.asteroidX - 25, (int) a.asteroidY - 25, 50, 50);
         }
+
+        // Debug String xd
+        String sb = "Mouse: " +
+                gameInput.mouseX +
+                " " +
+                gameInput.mouseY +
+                " Dukes: " +
+                dukesX +
+                " " +
+                dukesY +
+                " Core: " +
+                CORE_X + " " + CORE_Y;
+        g2d.drawString(sb, 0, 10);
 
         g2d.dispose();
         bufferStrat.show();
