@@ -17,6 +17,7 @@ class Game implements Runnable
     {
         double x = 0, y = 0;
         double life = 100;
+        boolean isActive = false;
     }
 
     static class Asteroid
@@ -74,6 +75,7 @@ class Game implements Runnable
             enemies[i] = new Enemy();
             enemies[i].x = CORE_X + 400 * Math.cos(randomAngle);
             enemies[i].y = CORE_Y + 400 * Math.sin(randomAngle);
+            enemies[i].isActive = true;
         }
 
         queue = new LinkedBlockingQueue<>(200);
@@ -190,6 +192,17 @@ class Game implements Runnable
             {
                 bullet.isActive = false;
             }
+
+            // bullets collide with enemies and deactivate them
+            for (Enemy enemy : enemies)
+            {
+                if (!enemy.isActive) continue;
+                if (Math.sqrt(Math.pow(bullet.bulletX - enemy.x, 2) + Math.pow(bullet.bulletY - enemy.y, 2)) <= 10)
+                {
+                    bullet.isActive = false;
+                    enemy.isActive = false;
+                }
+            }
         }
 
         // Move each active asteroid towards the center but not at all
@@ -210,6 +223,22 @@ class Game implements Runnable
             }
         }
 
+        // Make enemies follow the player
+        for (Enemy enemy : enemies)
+        {
+            if (!enemy.isActive) continue;
+            float dirX = (float) (dukesX - enemy.x);
+            float dirY = (float) (dukesY - enemy.y);
+            float mag = (float) Math.sqrt((dirX * dirX) + (dirY * dirY));
+            dirX = mag > 0 ? dirX / mag : dirX;
+            dirY = mag > 0 ? dirY / mag : dirY;
+
+            if (Math.sqrt(Math.pow(enemy.x - dukesX, 2) + Math.pow(enemy.y - dukesY, 2)) > 100)
+            {
+                enemy.x += dirX;
+                enemy.y += dirY;
+            }
+        }
 
         // Debug Log
 //        try {
@@ -256,6 +285,7 @@ class Game implements Runnable
         g2d.setColor(Color.RED);
         for (Enemy enemy : enemies)
         {
+            if (!enemy.isActive) continue;
             g2d.fillRect((int) (enemy.x - 10), (int) (enemy.y - 10), 20, 20);
         }
 
