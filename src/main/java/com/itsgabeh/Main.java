@@ -8,12 +8,17 @@ import java.awt.image.BufferStrategy;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 class Game implements Runnable
 {
+    static class Enemy
+    {
+        double x = 0, y = 0;
+        double life = 100;
+    }
+
     static class Asteroid
     {
         double asteroidX = 0, asteroidY = 0;
@@ -38,7 +43,6 @@ class Game implements Runnable
     // Dukes variables
     private float dukesX = 0, dukesY = 0;
     private float rotationAngle = 0;
-
     private final Canvas canvas;
     private final GameInput gameInput;
     private final BlockingQueue<String> queue;
@@ -46,6 +50,7 @@ class Game implements Runnable
     // TODO: check optimizations of Data-Oriented Design
     private final Bullet[] bullets = new Bullet[BULLETS_POOL_CAPACITY];
     private final Asteroid[] asteroids = new Asteroid[ASTEROIDS_POOL_CAPACITY];
+    private final Enemy[] enemies = new Enemy[5];
 
     public Game()
     {
@@ -54,15 +59,21 @@ class Game implements Runnable
             bullets[i] = new Bullet();
         }
 
-        Random r = new Random();
-
         for (int i = 0; i < ASTEROIDS_POOL_CAPACITY; i++)
         {
+            double randomAngle = Math.random() * (Math.PI * 2);
             asteroids[i] = new Asteroid();
-            asteroids[i].asteroidX = r.nextInt(VIEWPORT_WIDTH - 50);
-            asteroids[i].asteroidY = r.nextInt(VIEWPORT_HEIGHT - 50);
-            IO.println(asteroids[i].asteroidX + " " + asteroids[i].asteroidY);
+            asteroids[i].asteroidX = CORE_X + 400 * Math.cos(randomAngle);
+            asteroids[i].asteroidY = CORE_Y + 400 * Math.sin(randomAngle);
             asteroids[i].isActive = true;
+        }
+
+        for (int i = 0; i < 5; i++)
+        {
+            double randomAngle = Math.random() * (Math.PI * 2);
+            enemies[i] = new Enemy();
+            enemies[i].x = CORE_X + 400 * Math.cos(randomAngle);
+            enemies[i].y = CORE_Y + 400 * Math.sin(randomAngle);
         }
 
         queue = new LinkedBlockingQueue<>(200);
@@ -240,6 +251,12 @@ class Game implements Runnable
         for (Asteroid a : activeAsteroids)
         {
             g2d.fillOval((int) a.asteroidX - 25, (int) a.asteroidY - 25, 50, 50);
+        }
+
+        g2d.setColor(Color.RED);
+        for (Enemy enemy : enemies)
+        {
+            g2d.fillRect((int) (enemy.x - 10), (int) (enemy.y - 10), 20, 20);
         }
 
         // Debug String xd
