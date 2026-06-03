@@ -1,0 +1,287 @@
+package com.itsgabeh;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.KeyEvent;
+import java.awt.geom.AffineTransform;
+import java.awt.image.BufferStrategy;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
+class Game implements Runnable {
+    private final int DUKES_WIDTH = 25, DUKES_HEIGHT = 25;
+    private final int VIEWPORT_WIDTH = 720, VIEWPORT_HEIGHT = 480;
+    private final int BULLETS_POOL_CAPACITY = 50;
+    private final int ASTEROIDS_POOL_CAPACITY = 10;
+    private final int CORE_X = VIEWPORT_WIDTH / 2, CORE_Y = VIEWPORT_HEIGHT / 2;
+    private final int CORE_WIDTH = 50, CORE_HEIGHT = 50;
+
+    private float dukesX = 0, dukesY = 0;
+    private float rotationAngle = 0;
+    private final Canvas canvas;
+    private final GameInput gameInput;
+    private final BlockingQueue<String> queue;
+    private boolean isRunning = false;
+
+    // TODO: check optimizations of Data-Oriented Design
+    private final Bullet[] bullets = new Bullet[BULLETS_POOL_CAPACITY];
+    private final Asteroid[] asteroids = new Asteroid[ASTEROIDS_POOL_CAPACITY];
+    private final Enemy[] enemies = new Enemy[5];
+
+    public Game() {
+        for (int i = 0; i < BULLETS_POOL_CAPACITY; i++) {
+            bullets[i] = new Bullet();
+        }
+
+        for (int i = 0; i < ASTEROIDS_POOL_CAPACITY; i++) {
+            double randomAngle = Math.random() * (Math.PI * 2);
+            asteroids[i] = new Asteroid();
+            asteroids[i].x = (float) (CORE_X + 400 * Math.cos(randomAngle));
+            asteroids[i].y = (float) (CORE_Y + 400 * Math.sin(randomAngle));
+            asteroids[i].isActive = true;
+        }
+
+        for (int i = 0; i < 5; i++) {
+            double randomAngle = Math.random() * (Math.PI * 2);
+            enemies[i] = new Enemy();
+            enemies[i].x = (float) (CORE_X + 400 * Math.cos(randomAngle));
+            enemies[i].y = (float) (CORE_Y + 400 * Math.sin(randomAngle));
+            enemies[i].isActive = true;
+        }
+
+        queue = new LinkedBlockingQueue<>(200);
+
+        JFrame mainFrame = new JFrame("Game test");
+        gameInput = new GameInput();
+        canvas = new Canvas();
+        canvas.addKeyListener(gameInput);
+        canvas.addMouseMotionListener(gameInput);
+
+        canvas.setPreferredSize(new Dimension(VIEWPORT_WIDTH, VIEWPORT_HEIGHT));
+
+        mainFrame.add(canvas);
+        mainFrame.pack();
+        mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        mainFrame.setLocationRelativeTo(null);
+        mainFrame.setResizable(false);
+        mainFrame.setVisible(true);
+    }
+
+    public synchronized void start() {
+        isRunning = true;
+        Thread mainThread = new Thread(this, "GameLoop");
+        mainThread.start();
+
+        Thread debugThread = new Thread(() -> {
+            while (true) {
+                try {
+                    String item = queue.take();
+                    IO.println(item);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }, "DebugLoop");
+        debugThread.start();
+    }
+
+    private void physicsUpdate() {
+        // Calculate a direction vector using a 'negative vector' + 'positive vector',
+        // the result is a vector in the form (x, y) where -1 <= x <= 1 and -1 <= y <= 1
+        int negativeX = 0, negativeY = 0;
+        int positiveX = 0, positiveY = 0;
+
+        if (gameInput.isPressed(KeyEvent.VK_W)) negativeY = -1;
+        if (gameInput.isPressed(KeyEvent.VK_A)) negativeX = -1;
+        if (gameInput.isPressed(KeyEvent.VK_S)) positiveY = 1;
+        if (gameInput.isPressed(KeyEvent.VK_D)) positiveX = 1;
+
+        float directionX = negativeX + positiveX;
+        float directionY = negativeY + positiveY;
+
+        // To prevent division by zero, check if magnitude > 0
+        double magnitude = Math.sqrt(directionX * directionX + directionY * directionY);
+        directionX = magnitude > 0 ? (float) (directionX / magnitude) : directionX;
+        directionY = magnitude > 0 ? (float) (directionY / magnitude) : directionY;
+
+        // Move dukes pointing to the direction vector
+        dukesX += directionX * 3;
+        dukesY += directionY * 3;
+
+        // Get the direction vector pointing to mouse direction
+        // Mouse Pos - Dukes Pos = Direction Vector (starting from 0,0)
+        // Applying atan2 calculates the angle 0 within X line and the point (x,y)
+        float mouseDistanceX = gameInput.mouseX - (dukesX + (float) DUKES_WIDTH / 2);
+        float mouseDistanceY = gameInput.mouseY - (dukesY + (float) DUKES_HEIGHT / 2);
+        rotationAngle = (float) Math.atan2(mouseDistanceY, mouseDistanceX);
+
+        boolean isShooting = gameInput.isPressed(KeyEvent.VK_SPACE);
+        if (isShooting) {
+            // TODO: check optimizations of Data-Oriented Design
+            Optional<Bullet> bullet = Arrays.stream(bullets).filter(b -> !b.isActive).findFirst();
+            if (bullet.isPresent()) {
+                Bullet b = bullet.get();
+                b.isActive = true;
+                // Spawn bullets at dukes pos
+                b.x = dukesX;
+                b.y = dukesY;
+                // Cos and Sin of an angle 0 gives the x and y components of the vector A with angle 0
+                b.directionX = (float) Math.cos(rotationAngle);
+                b.directionY = (float) Math.sin(rotationAngle);
+            }
+        }
+
+        // TODO: check optimizations of Data-Oriented Design
+        for (Bullet bullet : bullets) {
+            if (!bullet.isActive) continue;
+            if (bullet.x < 0 || bullet.x > VIEWPORT_WIDTH || bullet.y < 0 || bullet.y > VIEWPORT_HEIGHT)
+                bullet.isActive = false;
+            else {
+                bullet.x += bullet.directionX * 25;
+                bullet.y += bullet.directionY * 25;
+            }
+
+            // Bullets can collide with asteroids
+            // Check if bullet distance from the asteroid center
+            for (Asteroid as : asteroids) {
+                if (as.isActive) {
+                    if (Math.sqrt(Math.pow(bullet.x - as.x, 2) + Math.pow(bullet.y - as.y, 2)) <= 25) {
+                        bullet.isActive = false;
+                    }
+                }
+            }
+
+            // bullets can collide with the core
+            if ((Math.sqrt(Math.pow(bullet.x - CORE_X, 2) + Math.pow(bullet.y - CORE_Y, 2))) <= ((double) CORE_WIDTH / 2)) {
+                bullet.isActive = false;
+            }
+
+            // bullets collide with enemies and deactivate them
+            for (Enemy enemy : enemies) {
+                if (!enemy.isActive) continue;
+                if (Math.sqrt(Math.pow(bullet.x - enemy.x, 2) + Math.pow(bullet.y - enemy.y, 2)) <= 10) {
+                    bullet.isActive = false;
+                    enemy.isActive = false;
+                }
+            }
+        }
+
+        // Move each active asteroid towards the center but not at all
+        for (Asteroid asteroid : asteroids) {
+            if (!asteroid.isActive) continue;
+            float dirX = (float) (((float) CORE_X) - asteroid.x);
+            float dirY = (float) (((float) CORE_Y) - asteroid.y);
+            float mag = (float) Math.sqrt((dirX * dirX) + (dirY * dirY));
+            dirX = mag > 0 ? dirX / mag : dirX;
+            dirY = mag > 0 ? dirY / mag : dirY;
+
+
+            if (Math.sqrt(Math.pow(asteroid.x - CORE_X, 2) + Math.pow(asteroid.y - CORE_Y, 2)) > 200) {
+                asteroid.x += dirX;
+                asteroid.y += dirY;
+            }
+        }
+
+        // Make enemies follow the player
+        for (Enemy enemy : enemies) {
+            if (!enemy.isActive) continue;
+            float dirX = (float) (dukesX - enemy.x);
+            float dirY = (float) (dukesY - enemy.y);
+            float mag = (float) Math.sqrt((dirX * dirX) + (dirY * dirY));
+            dirX = mag > 0 ? dirX / mag : dirX;
+            dirY = mag > 0 ? dirY / mag : dirY;
+
+            if (Math.sqrt(Math.pow(enemy.x - dukesX, 2) + Math.pow(enemy.y - dukesY, 2)) > 100) {
+                enemy.x += dirX;
+                enemy.y += dirY;
+            }
+        }
+
+        // Debug Log
+//        try {
+//            queue.put("X: " + dukesX + " Y:" + dukesY + " Mouse " + gameInput.mouseX + " " + gameInput.mouseY);
+//        } catch (InterruptedException e) {
+//            throw new RuntimeException(e);
+//        }
+    }
+
+    private void render() {
+        BufferStrategy bufferStrat = canvas.getBufferStrategy(); // Paint into backend buffer
+        Graphics2D g2d = (Graphics2D) bufferStrat.getDrawGraphics();
+        AffineTransform originalTransform = g2d.getTransform();
+
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+
+        g2d.setColor(new Color(28, 28, 28));
+        g2d.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+
+        g2d.setColor(new Color(15457202));
+        g2d.rotate(rotationAngle, dukesX, dukesY);
+        g2d.fillOval((int) dukesX - (DUKES_WIDTH / 2), (int) dukesY - (DUKES_HEIGHT / 2), DUKES_WIDTH, DUKES_HEIGHT);
+        g2d.setTransform(originalTransform);
+
+        g2d.fillRoundRect(CORE_X - (CORE_WIDTH / 2), CORE_Y - (CORE_HEIGHT / 2), CORE_WIDTH, CORE_HEIGHT, 1, 1);
+
+        // TODO: check optimizations of Data-Oriented Design
+        g2d.setColor(new Color(8627608));
+        for (Bullet bullet : bullets) {
+            if (!bullet.isActive) continue;
+            g2d.fillRect((int) bullet.x, (int) bullet.y, 2, 2);
+        }
+
+        g2d.setColor(new Color(6708308));
+        List<Asteroid> activeAsteroids = Arrays.stream(asteroids).filter(a -> a.isActive).toList();
+        for (Asteroid a : activeAsteroids) {
+            g2d.fillOval((int) a.x - 25, (int) a.y - 25, 50, 50);
+        }
+
+        g2d.setColor(Color.RED);
+        for (Enemy enemy : enemies) {
+            if (!enemy.isActive) continue;
+            g2d.fillRect((int) (enemy.x - 10), (int) (enemy.y - 10), 20, 20);
+        }
+
+        // Debug String xd
+        String sb = "Mouse: " +
+                gameInput.mouseX +
+                " " +
+                gameInput.mouseY +
+                " Dukes: " +
+                dukesX +
+                " " +
+                dukesY +
+                " Core: " +
+                CORE_X + " " + CORE_Y;
+        g2d.drawString(sb, 0, 10);
+
+        g2d.dispose();
+        bufferStrat.show();
+    }
+
+    @Override
+    public void run() {
+        canvas.createBufferStrategy(2);
+
+        long prevTime = System.nanoTime();
+        final double ticksPerSecond = 60f;
+        final double nanosecondsPerTick = 1000000000 / ticksPerSecond;
+        double delta = 0;
+
+        while (isRunning) {
+            long currentTime = System.nanoTime();
+            delta += (currentTime - prevTime) / nanosecondsPerTick;
+            prevTime = currentTime;
+
+            while (delta >= 1) {
+                physicsUpdate();
+                delta--;
+            }
+
+            render();
+        }
+    }
+}
