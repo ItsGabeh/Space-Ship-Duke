@@ -8,8 +8,6 @@ import java.awt.image.BufferStrategy;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 class Game implements Runnable {
     private final int DUKES_WIDTH = 25, DUKES_HEIGHT = 25;
@@ -23,7 +21,6 @@ class Game implements Runnable {
     private float rotationAngle = 0;
     private final Canvas canvas;
     private final GameInput gameInput;
-    private final BlockingQueue<String> queue;
     private boolean isRunning = false;
 
     // TODO: check optimizations of Data-Oriented Design
@@ -52,8 +49,6 @@ class Game implements Runnable {
             enemies[i].isActive = true;
         }
 
-        queue = new LinkedBlockingQueue<>(200);
-
         JFrame mainFrame = new JFrame("Game test");
         gameInput = new GameInput();
         canvas = new Canvas();
@@ -74,18 +69,6 @@ class Game implements Runnable {
         isRunning = true;
         Thread mainThread = new Thread(this, "GameLoop");
         mainThread.start();
-
-        Thread debugThread = new Thread(() -> {
-            while (true) {
-                try {
-                    String item = queue.take();
-                    IO.println(item);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        }, "DebugLoop");
-        debugThread.start();
     }
 
     private void physicsUpdate() {
@@ -146,9 +129,9 @@ class Game implements Runnable {
 
             // Bullets can collide with asteroids
             // Check if bullet distance from the asteroid center
-            for (Asteroid as : asteroids) {
-                if (as.isActive) {
-                    if (Math.sqrt(Math.pow(bullet.x - as.x, 2) + Math.pow(bullet.y - as.y, 2)) <= 25) {
+            for (Asteroid asteroid : asteroids) {
+                if (asteroid.isActive) {
+                    if (Math.sqrt(Math.pow(bullet.x - asteroid.x, 2) + Math.pow(bullet.y - asteroid.y, 2)) <= 25) {
                         bullet.isActive = false;
                     }
                 }
@@ -172,8 +155,8 @@ class Game implements Runnable {
         // Move each active asteroid towards the center but not at all
         for (Asteroid asteroid : asteroids) {
             if (!asteroid.isActive) continue;
-            float dirX = (float) (((float) CORE_X) - asteroid.x);
-            float dirY = (float) (((float) CORE_Y) - asteroid.y);
+            float dirX = ((float) CORE_X) - asteroid.x;
+            float dirY = ((float) CORE_Y) - asteroid.y;
             float mag = (float) Math.sqrt((dirX * dirX) + (dirY * dirY));
             dirX = mag > 0 ? dirX / mag : dirX;
             dirY = mag > 0 ? dirY / mag : dirY;
@@ -188,8 +171,8 @@ class Game implements Runnable {
         // Make enemies follow the player
         for (Enemy enemy : enemies) {
             if (!enemy.isActive) continue;
-            float dirX = (float) (dukesX - enemy.x);
-            float dirY = (float) (dukesY - enemy.y);
+            float dirX = dukesX - enemy.x;
+            float dirY = dukesY - enemy.y;
             float mag = (float) Math.sqrt((dirX * dirX) + (dirY * dirY));
             dirX = mag > 0 ? dirX / mag : dirX;
             dirY = mag > 0 ? dirY / mag : dirY;
@@ -199,13 +182,6 @@ class Game implements Runnable {
                 enemy.y += dirY;
             }
         }
-
-        // Debug Log
-//        try {
-//            queue.put("X: " + dukesX + " Y:" + dukesY + " Mouse " + gameInput.mouseX + " " + gameInput.mouseY);
-//        } catch (InterruptedException e) {
-//            throw new RuntimeException(e);
-//        }
     }
 
     private void render() {
@@ -235,8 +211,8 @@ class Game implements Runnable {
 
         g2d.setColor(new Color(6708308));
         List<Asteroid> activeAsteroids = Arrays.stream(asteroids).filter(a -> a.isActive).toList();
-        for (Asteroid a : activeAsteroids) {
-            g2d.fillOval((int) a.x - 25, (int) a.y - 25, 50, 50);
+        for (Asteroid asteroid : activeAsteroids) {
+            g2d.fillOval((int) asteroid.x - 25, (int) asteroid.y - 25, 50, 50);
         }
 
         g2d.setColor(Color.RED);
