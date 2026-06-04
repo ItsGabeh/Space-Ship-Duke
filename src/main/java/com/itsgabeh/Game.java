@@ -131,7 +131,7 @@ class Game implements Runnable {
             // Check if bullet distance from the asteroid center
             for (Asteroid asteroid : asteroids) {
                 if (asteroid.isActive) {
-                    if (Math.sqrt(Math.pow(bullet.x - asteroid.x, 2) + Math.pow(bullet.y - asteroid.y, 2)) <= 25) {
+                    if (isColliding(asteroid.x, bullet.x, asteroid.y, bullet.y, 25, 1)) {
                         bullet.isActive = false;
                     }
                 }
@@ -145,7 +145,7 @@ class Game implements Runnable {
             // bullets collide with enemies and deactivate them
             for (Enemy enemy : enemies) {
                 if (!enemy.isActive) continue;
-                if (Math.sqrt(Math.pow(bullet.x - enemy.x, 2) + Math.pow(bullet.y - enemy.y, 2)) <= 10) {
+                if (isColliding(enemy.x, bullet.x, enemy.y, bullet.y, 10, 1)) {
                     bullet.isActive = false;
                     enemy.isActive = false;
                 }
@@ -206,7 +206,7 @@ class Game implements Runnable {
         g2d.setColor(new Color(8627608));
         for (Bullet bullet : bullets) {
             if (!bullet.isActive) continue;
-            g2d.fillRect((int) bullet.x, (int) bullet.y, 2, 2);
+            g2d.fillRect((int) bullet.x - 1, (int) bullet.y - 1, 2, 2);
         }
 
         g2d.setColor(new Color(6708308));
@@ -236,6 +236,15 @@ class Game implements Runnable {
 
         g2d.dispose();
         bufferStrat.show();
+    }
+
+    private boolean isColliding(float x1, float x2, float y1, float y2, float r1, float r2)
+    {
+        float sumOfRadius = (r1 + r2) * (r1 + r2);
+        float componentX = (x2 - x1) * (x2 - x1);
+        float componentY = (y2 - y1) * (y2 - y1);
+
+        return sumOfRadius > componentX + componentY;
     }
 
     @Override
