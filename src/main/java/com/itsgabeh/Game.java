@@ -5,9 +5,6 @@ import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferStrategy;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
 
 class Game implements Runnable {
     private final int DUKES_WIDTH = 25, DUKES_HEIGHT = 25;
@@ -104,16 +101,20 @@ class Game implements Runnable {
         boolean isShooting = gameInput.isPressed(KeyEvent.VK_SPACE);
         if (isShooting) {
             // TODO: check optimizations of Data-Oriented Design
-            Optional<Bullet> bullet = Arrays.stream(bullets).filter(b -> !b.isActive).findFirst();
-            if (bullet.isPresent()) {
-                Bullet b = bullet.get();
-                b.isActive = true;
+            Bullet bullet = null;
+            for (int i = 0; i < BULLETS_POOL_CAPACITY; i++)
+            {
+                if (!bullets[i].isActive) bullet = bullets[i];
+            }
+
+            if (bullet != null) {;
+                bullet.isActive = true;
                 // Spawn bullets at dukes pos
-                b.x = dukesX;
-                b.y = dukesY;
+                bullet.x = dukesX;
+                bullet.y = dukesY;
                 // Cos and Sin of an angle 0 gives the x and y components of the vector A with angle 0
-                b.directionX = (float) Math.cos(rotationAngle);
-                b.directionY = (float) Math.sin(rotationAngle);
+                bullet.directionX = (float) Math.cos(rotationAngle);
+                bullet.directionY = (float) Math.sin(rotationAngle);
             }
         }
 
@@ -210,8 +211,8 @@ class Game implements Runnable {
         }
 
         g2d.setColor(new Color(6708308));
-        List<Asteroid> activeAsteroids = Arrays.stream(asteroids).filter(a -> a.isActive).toList();
-        for (Asteroid asteroid : activeAsteroids) {
+        for (Asteroid asteroid : asteroids) {
+            if (!asteroid.isActive) continue;
             g2d.fillOval((int) asteroid.x - 25, (int) asteroid.y - 25, 50, 50);
         }
 
