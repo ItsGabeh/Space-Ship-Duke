@@ -157,7 +157,8 @@ class Game implements Runnable {
                 if (isColliding(enemy.x, bullet.x, enemy.y, bullet.y, 10, 1))
                 {
                     bullet.isActive = false;
-                    enemy.isActive = false;
+                    if (enemy.health <= 0) enemy.isActive = false;
+                    else enemy.health -= 20;
                 }
             }
         }
@@ -241,10 +242,12 @@ class Game implements Runnable {
             g2d.fillOval((int) asteroid.x - 25, (int) asteroid.y - 25, 50, 50);
         }
 
-        g2d.setColor(Color.RED);
         for (Enemy enemy : enemies) {
             if (!enemy.isActive) continue;
+            g2d.setColor(Color.RED);
             g2d.fillRect((int) (enemy.x - 10), (int) (enemy.y - 10), 20, 20);
+            g2d.setColor(Color.BLUE);
+            g2d.fillRect((int) (enemy.x - 25), (int) (enemy.y - 25), (int) (enemy.health * 0.5), 3);
         }
 
         // Inventory and Weapon System
