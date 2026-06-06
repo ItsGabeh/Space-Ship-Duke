@@ -8,7 +8,7 @@ import java.awt.image.BufferStrategy;
 
 class Game implements Runnable {
     private final int DUKES_WIDTH = 25, DUKES_HEIGHT = 25;
-    private final int VIEWPORT_WIDTH = 720, VIEWPORT_HEIGHT = 480;
+    private final int VIEWPORT_WIDTH = 1280, VIEWPORT_HEIGHT = 720;
     private final int BULLETS_POOL_CAPACITY = 50;
     private final int ASTEROIDS_POOL_CAPACITY = 10;
     private final int CORE_X = VIEWPORT_WIDTH / 2, CORE_Y = VIEWPORT_HEIGHT / 2;
@@ -19,6 +19,7 @@ class Game implements Runnable {
     private final Canvas canvas;
     private final GameInput gameInput;
     private boolean isRunning = false;
+    private int selectedSlot = 0;
 
     // TODO: check optimizations of Data-Oriented Design
     private final Bullet[] bullets = new Bullet[BULLETS_POOL_CAPACITY];
@@ -99,7 +100,8 @@ class Game implements Runnable {
         rotationAngle = (float) Math.atan2(mouseDistanceY, mouseDistanceX);
 
         boolean isShooting = gameInput.isPressed(KeyEvent.VK_SPACE);
-        if (isShooting) {
+        if (isShooting && selectedSlot == 0)
+        {
             // TODO: check optimizations of Data-Oriented Design
             Bullet bullet = null;
             for (int i = 0; i < BULLETS_POOL_CAPACITY; i++)
@@ -118,12 +120,15 @@ class Game implements Runnable {
             }
         }
 
+
         // TODO: check optimizations of Data-Oriented Design
-        for (Bullet bullet : bullets) {
+        for (Bullet bullet : bullets)
+        {
             if (!bullet.isActive) continue;
             if (bullet.x < 0 || bullet.x > VIEWPORT_WIDTH || bullet.y < 0 || bullet.y > VIEWPORT_HEIGHT)
                 bullet.isActive = false;
-            else {
+            else
+            {
                 bullet.x += bullet.directionX * 25;
                 bullet.y += bullet.directionY * 25;
             }
@@ -139,14 +144,17 @@ class Game implements Runnable {
             }
 
             // bullets can collide with the core
-            if ((Math.sqrt(Math.pow(bullet.x - CORE_X, 2) + Math.pow(bullet.y - CORE_Y, 2))) <= ((double) CORE_WIDTH / 2)) {
+            if ((Math.sqrt(Math.pow(bullet.x - CORE_X, 2) + Math.pow(bullet.y - CORE_Y, 2))) <= ((double) CORE_WIDTH / 2))
+            {
                 bullet.isActive = false;
             }
 
             // bullets collide with enemies and deactivate them
-            for (Enemy enemy : enemies) {
+            for (Enemy enemy : enemies)
+            {
                 if (!enemy.isActive) continue;
-                if (isColliding(enemy.x, bullet.x, enemy.y, bullet.y, 10, 1)) {
+                if (isColliding(enemy.x, bullet.x, enemy.y, bullet.y, 10, 1))
+                {
                     bullet.isActive = false;
                     enemy.isActive = false;
                 }
@@ -154,7 +162,8 @@ class Game implements Runnable {
         }
 
         // Move each active asteroid towards the center but not at all
-        for (Asteroid asteroid : asteroids) {
+        for (Asteroid asteroid : asteroids)
+        {
             if (!asteroid.isActive) continue;
             float dirX = ((float) CORE_X) - asteroid.x;
             float dirY = ((float) CORE_Y) - asteroid.y;
@@ -163,14 +172,24 @@ class Game implements Runnable {
             dirY = mag > 0 ? dirY / mag : dirY;
 
 
-            if (Math.sqrt(Math.pow(asteroid.x - CORE_X, 2) + Math.pow(asteroid.y - CORE_Y, 2)) > 200) {
+            if (Math.sqrt(Math.pow(asteroid.x - CORE_X, 2) + Math.pow(asteroid.y - CORE_Y, 2)) > 200)
+            {
                 asteroid.x += dirX;
                 asteroid.y += dirY;
+            }
+
+
+            float distanceFromMouse = (float) Math.sqrt(Math.pow(gameInput.mouseX - asteroid.x, 2) + Math.pow(gameInput.mouseY - asteroid.y, 2));
+            float distanceFromDukes = (float) Math.sqrt(Math.pow(dukesX - asteroid.x, 2) + Math.pow(dukesY - asteroid.y, 2));
+            if (selectedSlot == 1 && distanceFromMouse < 25 && distanceFromDukes < 50 && gameInput.isPressed(KeyEvent.VK_R))
+            {
+                asteroid.isActive = false;
             }
         }
 
         // Make enemies follow the player
-        for (Enemy enemy : enemies) {
+        for (Enemy enemy : enemies)
+        {
             if (!enemy.isActive) continue;
             float dirX = dukesX - enemy.x;
             float dirY = dukesY - enemy.y;
@@ -183,6 +202,11 @@ class Game implements Runnable {
                 enemy.y += dirY;
             }
         }
+
+        // Check input of selected slot
+        if (gameInput.isPressed(KeyEvent.VK_1)) selectedSlot = 0;
+        else if (gameInput.isPressed(KeyEvent.VK_2)) selectedSlot = 1;
+        else if (gameInput.isPressed(KeyEvent.VK_3)) selectedSlot = 2;
     }
 
     private void render() {
@@ -220,6 +244,18 @@ class Game implements Runnable {
         for (Enemy enemy : enemies) {
             if (!enemy.isActive) continue;
             g2d.fillRect((int) (enemy.x - 10), (int) (enemy.y - 10), 20, 20);
+        }
+
+        // Inventory and Weapon System
+        // 1. Drill for mining
+        // 2. Basic weapon
+        // 3. Laser? or ultimate
+        int offset = 30;
+        for (int i = 0; i < 3; i++)
+        {
+            if (i == selectedSlot) g2d.setColor(Color.WHITE);
+            else g2d.setColor(Color.GRAY);
+            g2d.drawRect((VIEWPORT_WIDTH / 2) - ( offset * 3 / 2) + (offset * i), VIEWPORT_HEIGHT - offset - 10, offset, offset);
         }
 
         // Debug String xd
