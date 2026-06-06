@@ -13,6 +13,7 @@ class Game implements Runnable {
     private final int ASTEROIDS_POOL_CAPACITY = 10;
     private final int CORE_X = VIEWPORT_WIDTH / 2, CORE_Y = VIEWPORT_HEIGHT / 2;
     private final int CORE_WIDTH = 50, CORE_HEIGHT = 50;
+    private final int INITIAL_FRAMES_TO_SHOOT = 50;
 
     private float dukesX = 0, dukesY = 0;
     private float rotationAngle = 0;
@@ -20,6 +21,7 @@ class Game implements Runnable {
     private final GameInput gameInput;
     private boolean isRunning = false;
     private int selectedSlot = 0;
+    private int framesToShoot = 0;
 
     // TODO: check optimizations of Data-Oriented Design
     private final Bullet[] bullets = new Bullet[BULLETS_POOL_CAPACITY];
@@ -101,7 +103,7 @@ class Game implements Runnable {
         rotationAngle = (float) Math.atan2(mouseDistanceY, mouseDistanceX);
 
         boolean isShooting = gameInput.mouseLeftPressed;
-        if (isShooting && selectedSlot == 0)
+        if (isShooting && selectedSlot == 0 && framesToShoot == 0)
         {
             // TODO: check optimizations of Data-Oriented Design
             Bullet bullet = null;
@@ -119,6 +121,8 @@ class Game implements Runnable {
                 bullet.directionX = (float) Math.cos(rotationAngle);
                 bullet.directionY = (float) Math.sin(rotationAngle);
             }
+
+            framesToShoot = INITIAL_FRAMES_TO_SHOOT;
         }
 
 
@@ -209,6 +213,9 @@ class Game implements Runnable {
         if (gameInput.isPressed(KeyEvent.VK_1)) selectedSlot = 0;
         else if (gameInput.isPressed(KeyEvent.VK_2)) selectedSlot = 1;
         else if (gameInput.isPressed(KeyEvent.VK_3)) selectedSlot = 2;
+
+        // Update frames to shoot
+        framesToShoot = framesToShoot > 0 ? framesToShoot - 1 : 0;
     }
 
     private void render() {
