@@ -98,8 +98,8 @@ class Game implements Runnable {
         // Get the direction vector pointing to mouse direction
         // Mouse Pos - Dukes Pos = Direction Vector (starting from 0,0)
         // Applying atan2 calculates the angle 0 within X line and the point (x,y)
-        float mouseDistanceX = gameInput.mouseX - (dukesX + (float) DUKES_WIDTH / 2);
-        float mouseDistanceY = gameInput.mouseY - (dukesY + (float) DUKES_HEIGHT / 2);
+        float mouseDistanceX = gameInput.mouseX - dukesX;
+        float mouseDistanceY = gameInput.mouseY - dukesY;
         rotationAngle = (float) Math.atan2(mouseDistanceY, mouseDistanceX);
 
         boolean isShooting = gameInput.mouseLeftPressed;
