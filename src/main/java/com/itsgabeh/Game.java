@@ -6,7 +6,8 @@ import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferStrategy;
 
-class Game implements Runnable {
+class Game implements Runnable
+{
     private final int DUKES_WIDTH = 25, DUKES_HEIGHT = 25;
     private final int VIEWPORT_WIDTH = 1280, VIEWPORT_HEIGHT = 720;
     private final int BULLETS_POOL_CAPACITY = 50;
@@ -28,12 +29,15 @@ class Game implements Runnable {
     private final Asteroid[] asteroids = new Asteroid[ASTEROIDS_POOL_CAPACITY];
     private final Enemy[] enemies = new Enemy[5];
 
-    public Game() {
-        for (int i = 0; i < BULLETS_POOL_CAPACITY; i++) {
+    public Game()
+    {
+        for (int i = 0; i < BULLETS_POOL_CAPACITY; i++)
+        {
             bullets[i] = new Bullet();
         }
 
-        for (int i = 0; i < ASTEROIDS_POOL_CAPACITY; i++) {
+        for (int i = 0; i < ASTEROIDS_POOL_CAPACITY; i++)
+        {
             double randomAngle = Math.random() * (Math.PI * 2);
             asteroids[i] = new Asteroid();
             asteroids[i].x = (float) (CORE_X + 400 * Math.cos(randomAngle));
@@ -41,7 +45,8 @@ class Game implements Runnable {
             asteroids[i].isActive = true;
         }
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 5; i++)
+        {
             double randomAngle = Math.random() * (Math.PI * 2);
             enemies[i] = new Enemy();
             enemies[i].x = (float) (CORE_X + 400 * Math.cos(randomAngle));
@@ -66,13 +71,15 @@ class Game implements Runnable {
         mainFrame.setVisible(true);
     }
 
-    public synchronized void start() {
+    public synchronized void start()
+    {
         isRunning = true;
         Thread mainThread = new Thread(this, "GameLoop");
         mainThread.start();
     }
 
-    private void physicsUpdate() {
+    private void physicsUpdate()
+    {
         // Calculate a direction vector using a 'negative vector' + 'positive vector',
         // the result is a vector in the form (x, y) where -1 <= x <= 1 and -1 <= y <= 1
         int negativeX = 0, negativeY = 0;
@@ -112,7 +119,8 @@ class Game implements Runnable {
                 if (!bullets[i].isActive) bullet = bullets[i];
             }
 
-            if (bullet != null) {;
+            if (bullet != null)
+            {
                 bullet.isActive = true;
                 // Spawn bullets at dukes pos
                 bullet.x = dukesX;
@@ -140,9 +148,12 @@ class Game implements Runnable {
 
             // Bullets can collide with asteroids
             // Check if bullet distance from the asteroid center
-            for (Asteroid asteroid : asteroids) {
-                if (asteroid.isActive) {
-                    if (isColliding(asteroid.x, bullet.x, asteroid.y, bullet.y, 25, 1)) {
+            for (Asteroid asteroid : asteroids)
+            {
+                if (asteroid.isActive)
+                {
+                    if (isColliding(asteroid.x, bullet.x, asteroid.y, bullet.y, 25, 1))
+                    {
                         bullet.isActive = false;
                     }
                 }
@@ -203,7 +214,8 @@ class Game implements Runnable {
             dirX = mag > 0 ? dirX / mag : dirX;
             dirY = mag > 0 ? dirY / mag : dirY;
 
-            if (Math.sqrt(Math.pow(enemy.x - dukesX, 2) + Math.pow(enemy.y - dukesY, 2)) > 100) {
+            if (Math.sqrt(Math.pow(enemy.x - dukesX, 2) + Math.pow(enemy.y - dukesY, 2)) > 100)
+            {
                 enemy.x += dirX;
                 enemy.y += dirY;
             }
@@ -218,7 +230,8 @@ class Game implements Runnable {
         framesToShoot = framesToShoot > 0 ? framesToShoot - 1 : 0;
     }
 
-    private void render() {
+    private void render()
+    {
         BufferStrategy bufferStrat = canvas.getBufferStrategy(); // Paint into backend buffer
         Graphics2D g2d = (Graphics2D) bufferStrat.getDrawGraphics();
         AffineTransform originalTransform = g2d.getTransform();
@@ -238,18 +251,21 @@ class Game implements Runnable {
 
         // TODO: check optimizations of Data-Oriented Design
         g2d.setColor(new Color(8627608));
-        for (Bullet bullet : bullets) {
+        for (Bullet bullet : bullets)
+        {
             if (!bullet.isActive) continue;
             g2d.fillRect((int) bullet.x - 1, (int) bullet.y - 1, 2, 2);
         }
 
         g2d.setColor(new Color(6708308));
-        for (Asteroid asteroid : asteroids) {
+        for (Asteroid asteroid : asteroids)
+        {
             if (!asteroid.isActive) continue;
             g2d.fillOval((int) asteroid.x - 25, (int) asteroid.y - 25, 50, 50);
         }
 
-        for (Enemy enemy : enemies) {
+        for (Enemy enemy : enemies)
+        {
             if (!enemy.isActive) continue;
             g2d.setColor(Color.RED);
             g2d.fillRect((int) (enemy.x - 10), (int) (enemy.y - 10), 20, 20);
@@ -300,7 +316,8 @@ class Game implements Runnable {
     }
 
     @Override
-    public void run() {
+    public void run()
+    {
         canvas.createBufferStrategy(2);
 
         long prevTime = System.nanoTime();
@@ -308,12 +325,14 @@ class Game implements Runnable {
         final double nanosecondsPerTick = 1000000000 / ticksPerSecond;
         double delta = 0;
 
-        while (isRunning) {
+        while (isRunning)
+        {
             long currentTime = System.nanoTime();
             delta += (currentTime - prevTime) / nanosecondsPerTick;
             prevTime = currentTime;
 
-            while (delta >= 1) {
+            while (delta >= 1)
+            {
                 physicsUpdate();
                 delta--;
             }
