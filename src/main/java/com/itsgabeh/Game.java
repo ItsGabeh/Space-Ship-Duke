@@ -52,6 +52,7 @@ class Game implements Runnable {
         canvas = new Canvas();
         canvas.addKeyListener(gameInput);
         canvas.addMouseMotionListener(gameInput);
+        canvas.addMouseListener(gameInput);
 
         canvas.setPreferredSize(new Dimension(VIEWPORT_WIDTH, VIEWPORT_HEIGHT));
 
@@ -99,7 +100,7 @@ class Game implements Runnable {
         float mouseDistanceY = gameInput.mouseY - (dukesY + (float) DUKES_HEIGHT / 2);
         rotationAngle = (float) Math.atan2(mouseDistanceY, mouseDistanceX);
 
-        boolean isShooting = gameInput.isPressed(KeyEvent.VK_SPACE);
+        boolean isShooting = gameInput.mouseLeftPressed;
         if (isShooting && selectedSlot == 0)
         {
             // TODO: check optimizations of Data-Oriented Design
@@ -181,7 +182,7 @@ class Game implements Runnable {
 
             float distanceFromMouse = (float) Math.sqrt(Math.pow(gameInput.mouseX - asteroid.x, 2) + Math.pow(gameInput.mouseY - asteroid.y, 2));
             float distanceFromDukes = (float) Math.sqrt(Math.pow(dukesX - asteroid.x, 2) + Math.pow(dukesY - asteroid.y, 2));
-            if (selectedSlot == 1 && distanceFromMouse < 25 && distanceFromDukes < 50 && gameInput.isPressed(KeyEvent.VK_R))
+            if (selectedSlot == 1 && distanceFromMouse < 25 && distanceFromDukes < 50 && gameInput.mouseLeftPressed)
             {
                 asteroid.isActive = false;
             }
@@ -258,6 +259,9 @@ class Game implements Runnable {
             g2d.drawRect((VIEWPORT_WIDTH / 2) - ( offset * 3 / 2) + (offset * i), VIEWPORT_HEIGHT - offset - 10, offset, offset);
         }
 
+        g2d.setColor(Color.BLUE);
+        g2d.fillRect((int) (dukesX - 25), (int) (dukesY - 25), 50, 3);
+
         // Debug String xd
         String sb = "Mouse: " +
                 gameInput.mouseX +
@@ -268,7 +272,8 @@ class Game implements Runnable {
                 " " +
                 dukesY +
                 " Core: " +
-                CORE_X + " " + CORE_Y;
+                CORE_X + " " + CORE_Y +
+                " MLP: " + gameInput.mouseLeftPressed;
         g2d.drawString(sb, 0, 10);
 
         g2d.dispose();
