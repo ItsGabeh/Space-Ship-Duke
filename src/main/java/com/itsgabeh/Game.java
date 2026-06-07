@@ -49,8 +49,8 @@ class Game implements Runnable
         {
             double randomAngle = Math.random() * (Math.PI * 2);
             enemies[i] = new Enemy();
-            enemies[i].x = (float) (CORE_X + 600 * Math.cos(randomAngle));
-            enemies[i].y = (float) (CORE_Y + 400 * Math.sin(randomAngle));
+            enemies[i].x = (float) (CORE_X + 800 * Math.cos(randomAngle));
+            enemies[i].y = (float) (CORE_Y + 600 * Math.sin(randomAngle));
             enemies[i].isActive = true;
         }
 
@@ -227,6 +227,28 @@ class Game implements Runnable
             {
                 enemy.x += dirX;
                 enemy.y += dirY;
+            }
+
+            // Player can collide with asteroids, but player is pushed back on collision
+            if (isColliding(dukesX, enemy.x, dukesY, enemy.y, 12.5F, 10))
+            {
+                float tempDirX = enemy.x - dukesX;
+                float tempDirY = enemy.y - dukesY;
+                dukesX -= (float) (tempDirX * 0.1);
+                dukesY -= (float) (tempDirY * 0.1);
+            }
+
+            for (Asteroid asteroid : asteroids)
+            {
+                if (!asteroid.isActive) continue;
+                // Player can collide with asteroids, but player is pushed back on collision
+                if (isColliding(asteroid.x, enemy.x, asteroid.y, enemy.y, 12.5F, 10))
+                {
+                    float tempDirX = enemy.x - asteroid.x;
+                    float tempDirY = enemy.y - asteroid.y;
+                    enemy.x += (float) (tempDirX * 0.1);
+                    enemy.y += (float) (tempDirY * 0.1);
+                }
             }
         }
 
