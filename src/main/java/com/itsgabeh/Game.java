@@ -9,7 +9,7 @@ import java.awt.image.BufferStrategy;
 class Game implements Runnable
 {
     private final int DUKES_WIDTH = 25, DUKES_HEIGHT = 25;
-    private final int VIEWPORT_WIDTH = 1280, VIEWPORT_HEIGHT = 720;
+    private final int VIEWPORT_WIDTH = 720, VIEWPORT_HEIGHT = 720;
     private final int BULLETS_POOL_CAPACITY = 50;
     private final int ASTEROIDS_POOL_CAPACITY = 10;
     private final int CORE_X = VIEWPORT_WIDTH / 2, CORE_Y = VIEWPORT_HEIGHT / 2;
@@ -40,7 +40,7 @@ class Game implements Runnable
         {
             double randomAngle = Math.random() * (Math.PI * 2);
             asteroids[i] = new Asteroid();
-            asteroids[i].x = (float) (CORE_X + 400 * Math.cos(randomAngle));
+            asteroids[i].x = (float) (CORE_X + 600 * Math.cos(randomAngle));
             asteroids[i].y = (float) (CORE_Y + 400 * Math.sin(randomAngle));
             asteroids[i].isActive = true;
         }
@@ -49,7 +49,7 @@ class Game implements Runnable
         {
             double randomAngle = Math.random() * (Math.PI * 2);
             enemies[i] = new Enemy();
-            enemies[i].x = (float) (CORE_X + 400 * Math.cos(randomAngle));
+            enemies[i].x = (float) (CORE_X + 600 * Math.cos(randomAngle));
             enemies[i].y = (float) (CORE_Y + 400 * Math.sin(randomAngle));
             enemies[i].isActive = true;
         }
@@ -189,7 +189,7 @@ class Game implements Runnable
             dirY = mag > 0 ? dirY / mag : dirY;
 
 
-            if (Math.sqrt(Math.pow(asteroid.x - CORE_X, 2) + Math.pow(asteroid.y - CORE_Y, 2)) > 200)
+            if (Math.sqrt(Math.pow(asteroid.x - CORE_X, 2) + Math.pow(asteroid.y - CORE_Y, 2)) > 300)
             {
                 asteroid.x += dirX;
                 asteroid.y += dirY;
@@ -201,6 +201,15 @@ class Game implements Runnable
             if (selectedSlot == 1 && distanceFromMouse < 25 && distanceFromDukes < 50 && gameInput.mouseLeftPressed)
             {
                 asteroid.isActive = false;
+            }
+
+            // Player can collide with asteroids, but player is pushed back on collision
+            if (isColliding(dukesX, asteroid.x, dukesY, asteroid.y, 25, 25))
+            {
+                float tempDirX = asteroid.x - dukesX;
+                float tempDirY = asteroid.y - dukesY;
+                dukesX -= (float) (tempDirX * 0.1);
+                dukesY -= (float) (tempDirY * 0.1);
             }
         }
 
