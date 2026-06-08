@@ -30,9 +30,15 @@ class Game implements Runnable
     private final Bullet[] enemyBullets = new Bullet[BULLETS_POOL_CAPACITY * 2];
     private final Asteroid[] asteroids = new Asteroid[ASTEROIDS_POOL_CAPACITY];
     private final Enemy[] enemies = new Enemy[5];
+    private final BackgroundStar[] backgroundStars = new BackgroundStar[20];
 
     public Game()
     {
+        for (int i = 0; i < 20; i++)
+        {
+            backgroundStars[i] = new BackgroundStar();
+        }
+
         for (int i = 0; i < BULLETS_POOL_CAPACITY; i++)
         {
             bullets[i] = new Bullet();
@@ -332,7 +338,27 @@ class Game implements Runnable
         g2d.setColor(new Color(28, 28, 28));
         g2d.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
 
-        g2d.setColor(new Color(15457202));
+        for (BackgroundStar star : backgroundStars)
+        {
+            if (!star.isActive)
+            {
+                star.x = (float) (Math.random() * VIEWPORT_WIDTH);
+                star.y = (float) (Math.random() * VIEWPORT_HEIGHT);
+                star.isActive = true;
+            }
+
+            if (star.x < 0 || star.x > VIEWPORT_WIDTH || star.y < 0 || star.y > VIEWPORT_HEIGHT)
+            {
+                star.x = VIEWPORT_WIDTH;
+                star.y = (float) (Math.random() * VIEWPORT_HEIGHT);
+            }
+
+            g2d.setColor(new Color(0xEBDBB2)); // 168 153 132
+            star.x = (float) (star.x - 0.01);
+            g2d.fillOval((int) (star.x - 2), (int) (star.y - 2), 2, 2);
+        }
+
+        g2d.setColor(new Color(0xEBDBB2));
         g2d.rotate(rotationAngle, dukesX, dukesY);
         g2d.fillOval((int) dukesX - (DUKES_WIDTH / 2), (int) dukesY - (DUKES_HEIGHT / 2), DUKES_WIDTH, DUKES_HEIGHT);
         g2d.setTransform(originalTransform);
