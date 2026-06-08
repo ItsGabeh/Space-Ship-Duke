@@ -9,7 +9,7 @@ import java.awt.image.BufferStrategy;
 class Game implements Runnable
 {
     private final int DUKES_WIDTH = 25, DUKES_HEIGHT = 25;
-    private final int VIEWPORT_WIDTH = 720, VIEWPORT_HEIGHT = 720;
+    private final int VIEWPORT_WIDTH = 768, VIEWPORT_HEIGHT = 768;
     private final int BULLETS_POOL_CAPACITY = 50;
     private final int ASTEROIDS_POOL_CAPACITY = 10;
     private final int CORE_X = VIEWPORT_WIDTH / 2, CORE_Y = VIEWPORT_HEIGHT / 2;
@@ -18,6 +18,7 @@ class Game implements Runnable
 
     private float dukesX = 0, dukesY = 0;
     private float rotationAngle = 0;
+    private int dukesHealth = 100;
     private final Canvas canvas;
     private final GameInput gameInput;
     private boolean isRunning = false;
@@ -26,6 +27,7 @@ class Game implements Runnable
 
     // TODO: check optimizations of Data-Oriented Design
     private final Bullet[] bullets = new Bullet[BULLETS_POOL_CAPACITY];
+    private final Bullet[] enemyBullets = new Bullet[BULLETS_POOL_CAPACITY * 2];
     private final Asteroid[] asteroids = new Asteroid[ASTEROIDS_POOL_CAPACITY];
     private final Enemy[] enemies = new Enemy[5];
 
@@ -34,6 +36,11 @@ class Game implements Runnable
         for (int i = 0; i < BULLETS_POOL_CAPACITY; i++)
         {
             bullets[i] = new Bullet();
+        }
+
+        for (int i = 0; i < BULLETS_POOL_CAPACITY * 2; i++)
+        {
+            enemyBullets[i] = new Bullet();
         }
 
         for (int i = 0; i < ASTEROIDS_POOL_CAPACITY; i++)
@@ -99,8 +106,8 @@ class Game implements Runnable
         directionY = magnitude > 0 ? (float) (directionY / magnitude) : directionY;
 
         // Move dukes pointing to the direction vector
-        dukesX += directionX * 3;
-        dukesY += directionY * 3;
+        dukesX += directionX * 1.2F;
+        dukesY += directionY * 1.2F;
 
         // Get the direction vector pointing to mouse direction
         // Mouse Pos - Dukes Pos = Direction Vector (starting from 0,0)
@@ -192,7 +199,7 @@ class Game implements Runnable
             if (Math.sqrt(Math.pow(asteroid.x - CORE_X, 2) + Math.pow(asteroid.y - CORE_Y, 2)) > 300)
             {
                 asteroid.x += dirX;
-                asteroid.y += dirY;
+                asteroid.y += (float) (dirY * 0.5);
             }
 
 
@@ -200,11 +207,18 @@ class Game implements Runnable
             float distanceFromDukes = (float) Math.sqrt(Math.pow(dukesX - asteroid.x, 2) + Math.pow(dukesY - asteroid.y, 2));
             if (selectedSlot == 1 && distanceFromMouse < 25 && distanceFromDukes < 50 && gameInput.mouseLeftPressed)
             {
-                asteroid.isActive = false;
+                if (asteroid.health > 0)
+                {
+                    asteroid.health -= 1;
+                }
+                else
+                {
+                    asteroid.isActive = false;
+                }
             }
 
             // Player can collide with asteroids, but player is pushed back on collision
-            if (isColliding(dukesX, asteroid.x, dukesY, asteroid.y, 25, 25))
+            if (isColliding(dukesX, asteroid.x, dukesY, asteroid.y, 12.5F, 25))
             {
                 float tempDirX = asteroid.x - dukesX;
                 float tempDirY = asteroid.y - dukesY;
@@ -228,6 +242,23 @@ class Game implements Runnable
                 enemy.x += dirX;
                 enemy.y += dirY;
             }
+            else if (enemy.framesToShoot == 0)
+            {
+                for (Bullet enemyBullet : enemyBullets)
+                {
+                    if (!enemyBullet.isActive)
+                    {
+                        enemyBullet.isActive = true;
+                        float tempRotation = (float) Math.atan2(dukesY - enemy.y, dukesX - enemy.x);
+                        enemyBullet.x = enemy.x;
+                        enemyBullet.y = enemy.y;
+                        enemyBullet.directionY = (float) Math.sin(tempRotation);
+                        enemyBullet.directionX = (float) Math.cos(tempRotation);
+                        enemy.framesToShoot = 50;
+                        break;
+                    }
+                }
+            }
 
             // Player can collide with asteroids, but player is pushed back on collision
             if (isColliding(dukesX, enemy.x, dukesY, enemy.y, 12.5F, 10))
@@ -249,6 +280,34 @@ class Game implements Runnable
                     enemy.x += (float) (tempDirX * 0.1);
                     enemy.y += (float) (tempDirY * 0.1);
                 }
+            }
+
+            for (Enemy nextEnemy : enemies)
+            {
+                if (nextEnemy.isActive && !nextEnemy.equals(enemy) && isColliding(enemy.x, nextEnemy.x, enemy.y, nextEnemy.y, 10, 10))
+                {
+                    float tempDirX = enemy.x - nextEnemy.x;
+                    float tempDirY = enemy.y - nextEnemy.y;
+                    enemy.x += (float) (tempDirX * 0.1);
+                    enemy.y += (float) (tempDirY * 0.1);
+                }
+            }
+
+            enemy.framesToShoot = enemy.framesToShoot > 0 ? enemy.framesToShoot - 1 : 0;
+        }
+
+        for (Bullet enemyBullet : enemyBullets)
+        {
+            if (!enemyBullet.isActive) continue;
+            enemyBullet.x += enemyBullet.directionX * 10;
+            enemyBullet.y += enemyBullet.directionY * 10;
+
+            if (enemyBullet.x < 0 || enemyBullet.x > VIEWPORT_WIDTH || enemyBullet.y < 0 || enemyBullet.y > VIEWPORT_HEIGHT)
+                enemyBullet.isActive = false;
+
+            if (isColliding(enemyBullet.x, dukesX, enemyBullet.y, dukesY, 1, 12.5F))
+            {
+                dukesHealth -= 1;
             }
         }
 
@@ -288,11 +347,24 @@ class Game implements Runnable
             g2d.fillRect((int) bullet.x - 1, (int) bullet.y - 1, 2, 2);
         }
 
-        g2d.setColor(new Color(6708308));
+        for (Bullet enemyBullet : enemyBullets)
+        {
+            if (!enemyBullet.isActive) continue;
+            g2d.fillRect((int) enemyBullet.x - 1, (int) enemyBullet.y - 1, 2, 2);
+        }
+
         for (Asteroid asteroid : asteroids)
         {
             if (!asteroid.isActive) continue;
+            g2d.setColor(new Color(6708308));
             g2d.fillOval((int) asteroid.x - 25, (int) asteroid.y - 25, 50, 50);
+
+            // Print health bar only when asteroid is being drilled
+            if (asteroid.health > 0)
+            {
+                g2d.setColor(Color.BLUE);
+                g2d.fillRect((int) (asteroid.x - 25), (int) (asteroid.y - 25), (int) (asteroid.health * 0.5F), 3);
+            }
         }
 
         for (Enemy enemy : enemies)
@@ -317,7 +389,7 @@ class Game implements Runnable
         }
 
         g2d.setColor(Color.BLUE);
-        g2d.fillRect((int) (dukesX - 25), (int) (dukesY - 25), 50, 3);
+        g2d.fillRect((int) (dukesX - 25), (int) (dukesY - 25), (int) (dukesHealth * 0.5F), 3);
 
         // Debug String xd
         String sb = "Mouse: " +

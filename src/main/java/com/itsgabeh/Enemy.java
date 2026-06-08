@@ -8,4 +8,5 @@ public class Enemy
     boolean isActive = false;
     boolean canShoot = false;
     boolean isShooting = false;
+    int framesToShoot = 10;
 }
