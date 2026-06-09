@@ -14,6 +14,12 @@ class GameInput implements KeyListener, MouseListener, MouseMotionListener
         return keys[keyCode];
     }
 
+    public void releasePressed(int keyCode)
+    {
+        if (keyCode < 0 || keyCode >= keys.length) return;
+        keys[keyCode] = false;
+    }
+
     @Override
     public void keyPressed(KeyEvent e)
     {
