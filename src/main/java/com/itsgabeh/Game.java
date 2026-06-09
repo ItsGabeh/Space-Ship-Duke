@@ -1,10 +1,13 @@
 package com.itsgabeh;
 
+import javax.sound.sampled.*;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferStrategy;
+import java.io.File;
+import java.io.IOException;
 
 class Game implements Runnable
 {
@@ -32,8 +35,21 @@ class Game implements Runnable
     private final Enemy[] enemies = new Enemy[5];
     private final BackgroundStar[] backgroundStars = new BackgroundStar[20];
 
+    private Clip dukesAudioClip;
+
     public Game()
     {
+        try
+        {
+            File file = new File("/home/gabeh/IdeaProjects/Dukes-8-bit-challenge/src/main/resources/laserShoot.wav");
+            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(file);
+            dukesAudioClip = AudioSystem.getClip();
+            dukesAudioClip.open(audioInputStream);
+        }
+        catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
+            e.printStackTrace();
+        }
+
         for (int i = 0; i < 20; i++)
         {
             backgroundStars[i] = new BackgroundStar();
@@ -125,6 +141,12 @@ class Game implements Runnable
         boolean isShooting = gameInput.mouseLeftPressed;
         if (isShooting && selectedSlot == 0 && framesToShoot == 0)
         {
+            if (dukesAudioClip != null)
+            {
+                dukesAudioClip.setFramePosition(0);
+                dukesAudioClip.start();
+            }
+
             // TODO: check optimizations of Data-Oriented Design
             Bullet bullet = null;
             for (int i = 0; i < BULLETS_POOL_CAPACITY; i++)
