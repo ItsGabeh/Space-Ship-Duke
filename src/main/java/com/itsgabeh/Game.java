@@ -3,6 +3,7 @@ package com.itsgabeh;
 import javax.sound.sampled.*;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferStrategy;
@@ -18,7 +19,39 @@ class Game implements Runnable
         GAME,
         START_MENU,
         GAME_OVER_MENU,
+        UPGRADE_MENU,
+        END_WAVE
     }
+
+    // Waves system
+    // 7 waves, 10 enemies on screen
+    // Enemies can be of two types, attackers and kamikaze
+    // Advanced enemies have more health and damage
+    // Enemy: x, y, health, framesToShoot, type, damage
+    // Enemy count per wave to advance to new wave
+    // Asteroids give resources - to implement
+    // At the end of each wave you can select 2 upgrades
+    // Health, Damage, Bigger Bullets, Speed, Precision/More bullets
+    // Each upgrade costs resources
+    private final int ENEMIES_ON_SCREEN = 10;
+    private final int WAVES = 7;
+    private final int[] ENEMIES_PER_WAVE = {15, 15, 20, 25, 30, 35, 40};
+    private int dukesResources = 1000;
+    private int currentWave = 0;
+    private int currentEnemiesKilled = 0;
+    private int currentActiveEnemies = 0;
+    private int secondsToStarNextWave = 10;
+
+    private enum DukesUpgrades
+    {
+        HEALTH,
+        DAMAGE,
+        BIGGER_BULLETS,
+        SPEED,
+        MORE_BULLETS
+    }
+
+    private final Timer nextWaveTimer;
 
     private final int DUKES_WIDTH = 25, DUKES_HEIGHT = 25;
     private final int VIEWPORT_WIDTH = 768, VIEWPORT_HEIGHT = 768;
@@ -42,7 +75,7 @@ class Game implements Runnable
     private final Bullet[] bullets = new Bullet[BULLETS_POOL_CAPACITY];
     private final Bullet[] enemyBullets = new Bullet[BULLETS_POOL_CAPACITY * 2];
     private final Asteroid[] asteroids = new Asteroid[ASTEROIDS_POOL_CAPACITY];
-    private final Enemy[] enemies = new Enemy[5];
+    private final Enemy[] enemies = new Enemy[ENEMIES_ON_SCREEN];
     private final BackgroundStar[] backgroundStars = new BackgroundStar[20];
 
     private Clip dukesAudioClip;
@@ -50,6 +83,8 @@ class Game implements Runnable
     public Game()
     {
         currentGameState = GameState.START_MENU;
+        nextWaveTimer = new Timer(1000, (ActionEvent _) -> secondsToStarNextWave--);
+        nextWaveTimer.stop();
 
         try
         {
@@ -86,12 +121,13 @@ class Game implements Runnable
             asteroids[i].isActive = true;
         }
 
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < ENEMIES_ON_SCREEN; i++)
         {
             double randomAngle = Math.random() * (Math.PI * 2);
             enemies[i] = new Enemy();
             enemies[i].x = (float) (CORE_X + 800 * Math.cos(randomAngle));
             enemies[i].y = (float) (CORE_Y + 600 * Math.sin(randomAngle));
+            currentActiveEnemies += 1;
             enemies[i].isActive = true;
         }
 
@@ -221,7 +257,12 @@ class Game implements Runnable
                     if (isColliding(enemy.x, bullet.x, enemy.y, bullet.y, 10, 1))
                     {
                         bullet.isActive = false;
-                        if (enemy.health <= 0) enemy.isActive = false;
+                        if (enemy.health <= 0)
+                        {
+                            enemy.isActive = false;
+                            currentEnemiesKilled += 1;
+                            currentActiveEnemies -= 1;
+                        }
                         else enemy.health -= 20;
                     }
                 }
@@ -272,7 +313,20 @@ class Game implements Runnable
             // Make enemies follow the player
             for (Enemy enemy : enemies)
             {
-                if (!enemy.isActive) continue;
+                if (!enemy.isActive)
+                {
+                    if ((currentEnemiesKilled + currentActiveEnemies) < ENEMIES_PER_WAVE[currentWave] && currentActiveEnemies < ENEMIES_ON_SCREEN)
+                    {
+                        enemy.isActive = true;
+                        enemy.health = 10;
+                        currentActiveEnemies += 1;
+                        double randomAngle = Math.random() * (Math.PI * 2);
+                        enemy.x = (float) (CORE_X + 800 * Math.cos(randomAngle));
+                        enemy.y = (float) (CORE_X + 800 * Math.sin(randomAngle));
+                    }
+
+                    continue;
+                }
                 float dirX = dukesX - enemy.x;
                 float dirY = dukesY - enemy.y;
                 float mag = (float) Math.sqrt((dirX * dirX) + (dirY * dirY));
@@ -366,6 +420,19 @@ class Game implements Runnable
                 currentGameState = GameState.PAUSE_MENU;
                 gameInput.releasePressed(KeyEvent.VK_ESCAPE);
             }
+
+            if ( currentEnemiesKilled == ENEMIES_PER_WAVE[currentWave])
+            {
+                nextWaveTimer.start();
+            }
+
+            if (secondsToStarNextWave == 0)
+            {
+                nextWaveTimer.stop();
+                secondsToStarNextWave = 10;
+                currentEnemiesKilled = 0;
+                currentWave++;
+            }
         }
         else if (currentGameState == GameState.START_MENU)
         {
@@ -386,6 +453,10 @@ class Game implements Runnable
                 currentGameState = GameState.GAME;
                 gameInput.releasePressed(KeyEvent.VK_ESCAPE);
             }
+        }
+        else if (currentGameState == GameState.UPGRADE_MENU)
+        {
+            // TODO: update dukes upgrades and return to game
         }
     }
 
@@ -507,21 +578,32 @@ class Game implements Runnable
                 g2d.drawString("Pause Menu", (VIEWPORT_WIDTH / 2) - 100 , 200);
                 g2d.drawString("Press ESC to continue", (VIEWPORT_WIDTH / 2) - 100 , 225);
             }
+
+            g2d.setColor(new Color(0xEBDBB2));
+            g2d.drawString("Wave " + currentWave, VIEWPORT_WIDTH / 2 - 15, 15);
+            g2d.drawString("CEK: " + currentEnemiesKilled, VIEWPORT_WIDTH / 2 - 15, 30);
+            g2d.drawString("EPW: " + ENEMIES_PER_WAVE[currentWave], VIEWPORT_WIDTH / 2 - 15, 45);
+            g2d.drawString("CAE: " + currentActiveEnemies, VIEWPORT_WIDTH / 2 - 15, 60);
+
+            if (nextWaveTimer.isRunning())
+            {
+                g2d.drawString("SNW: " + secondsToStarNextWave, VIEWPORT_WIDTH / 2 - 15, 75);
+            }
         }
 
         // Debug String xd
-        String sb = "Mouse: " +
-                gameInput.mouseX +
-                " " +
-                gameInput.mouseY +
-                " Dukes: " +
-                dukesX +
-                " " +
-                dukesY +
-                " Core: " +
-                CORE_X + " " + CORE_Y +
-                " MLP: " + gameInput.mouseLeftPressed;
-        g2d.drawString(sb, 0, 10);
+//        String sb = "Mouse: " +
+//                gameInput.mouseX +
+//                " " +
+//                gameInput.mouseY +
+//                " Dukes: " +
+//                dukesX +
+//                " " +
+//                dukesY +
+//                " Core: " +
+//                CORE_X + " " + CORE_Y +
+//                " MLP: " + gameInput.mouseLeftPressed;
+//        g2d.drawString(sb, 0, 10);
 
         g2d.dispose();
         bufferStrat.show();
