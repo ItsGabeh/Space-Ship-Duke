@@ -1,5 +1,6 @@
 package com.itsgabeh;
 
+import javax.imageio.ImageIO;
 import javax.sound.sampled.*;
 import javax.swing.*;
 import java.awt.*;
@@ -7,8 +8,10 @@ import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferStrategy;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 
 class Game implements Runnable
 {
@@ -33,9 +36,9 @@ class Game implements Runnable
     // At the end of each wave you can select 2 upgrades
     // Health, Damage, Bigger Bullets, Speed, Precision/More bullets
     // Each upgrade costs resources
-    private final int ENEMIES_ON_SCREEN = 10;
+    private final int ENEMIES_ON_SCREEN = 5;
     private final int WAVES = 7;
-    private final int[] ENEMIES_PER_WAVE = {15, 15, 20, 25, 30, 35, 40};
+    private final int[] ENEMIES_PER_WAVE = {5, 10, 15, 20, 25, 30, 40};
     private int dukesResources = 1000;
     private int currentWave = 0;
     private int currentEnemiesKilled = 0;
@@ -51,9 +54,11 @@ class Game implements Runnable
         MORE_BULLETS
     }
 
+    private DukesUpgrades firstOptionUpgrade, secondOptionUpgrade;
     private final Timer nextWaveTimer;
 
-    private final int DUKES_WIDTH = 25, DUKES_HEIGHT = 25;
+    private final int SPRITE_SIZE_PX = 32;
+
     private final int VIEWPORT_WIDTH = 768, VIEWPORT_HEIGHT = 768;
     private final int BULLETS_POOL_CAPACITY = 50;
     private final int ASTEROIDS_POOL_CAPACITY = 10;
@@ -79,12 +84,23 @@ class Game implements Runnable
     private final BackgroundStar[] backgroundStars = new BackgroundStar[20];
 
     private Clip dukesAudioClip;
+    private BufferedImage spriteSheet;
 
     public Game()
     {
         currentGameState = GameState.START_MENU;
         nextWaveTimer = new Timer(1000, (ActionEvent _) -> secondsToStarNextWave--);
         nextWaveTimer.stop();
+
+        try
+        {
+            URL spriteSheetURL = getClass().getResource("/SpriteSheet.png");
+            if (spriteSheetURL != null) spriteSheet = ImageIO.read(spriteSheetURL);
+            else System.out.println("Cannot load image");
+        } catch (Exception e)
+        {
+            e.printStackTrace();
+        }
 
         try
         {
@@ -432,6 +448,7 @@ class Game implements Runnable
                 secondsToStarNextWave = 10;
                 currentEnemiesKilled = 0;
                 currentWave++;
+                currentGameState = GameState.UPGRADE_MENU;
             }
         }
         else if (currentGameState == GameState.START_MENU)
@@ -456,7 +473,29 @@ class Game implements Runnable
         }
         else if (currentGameState == GameState.UPGRADE_MENU)
         {
-            // TODO: update dukes upgrades and return to game
+            int randomWeight = (int) (Math.random() * 5) + 1;
+            // TODO: replace enum instances with ints
+            if (randomWeight >= 0) {
+                firstOptionUpgrade = DukesUpgrades.SPEED;
+                secondOptionUpgrade = DukesUpgrades.MORE_BULLETS;
+            }
+
+            boolean isOverFirstOption = gameInput.mouseX >= (VIEWPORT_WIDTH / 2 - 320) && gameInput.mouseX <= (VIEWPORT_WIDTH / 2 - 20)
+                    && gameInput.mouseY >= 50 && gameInput.mouseY <= (VIEWPORT_HEIGHT - 100);
+            boolean isOverSecondOption = gameInput.mouseX >= (VIEWPORT_WIDTH / 2 + 20) && gameInput.mouseX <= (VIEWPORT_WIDTH / 2 + 320)
+                    && gameInput.mouseY >= 50 && gameInput.mouseY <= (VIEWPORT_HEIGHT - 100);
+
+            if (isOverFirstOption && gameInput.mouseLeftPressed)
+            {
+                currentGameState = GameState.GAME;
+                gameInput.mouseLeftPressed = false;
+            }
+
+            if (isOverSecondOption && gameInput.mouseLeftPressed)
+            {
+                currentGameState = GameState.GAME;
+                gameInput.mouseLeftPressed = false;
+            }
         }
     }
 
@@ -507,12 +546,17 @@ class Game implements Runnable
         else
         {
             g2d.setFont(null);
-            g2d.setColor(new Color(0xEBDBB2));
+
+            // Draw Dukes
+//            g2d.setColor(new Color(0xEBDBB2));
             g2d.rotate(rotationAngle, dukesX, dukesY);
-            g2d.fillOval((int) dukesX - (DUKES_WIDTH / 2), (int) dukesY - (DUKES_HEIGHT / 2), DUKES_WIDTH, DUKES_HEIGHT);
+            // g2d.fillOval((int) dukesX - (DUKES_WIDTH / 2), (int) dukesY - (DUKES_HEIGHT / 2), DUKES_WIDTH, DUKES_HEIGHT);
+            g2d.drawImage(spriteSheet.getSubimage(0, 0, SPRITE_SIZE_PX, SPRITE_SIZE_PX), null, (int) (dukesX - 16), (int) (dukesY - 16));
             g2d.setTransform(originalTransform);
 
-            g2d.fillRoundRect(CORE_X - (CORE_WIDTH / 2), CORE_Y - (CORE_HEIGHT / 2), CORE_WIDTH, CORE_HEIGHT, 1, 1);
+            // Draw The crystal
+//            g2d.fillRoundRect(CORE_X - (CORE_WIDTH / 2), CORE_Y - (CORE_HEIGHT / 2), CORE_WIDTH, CORE_HEIGHT, 1, 1);
+            g2d.drawImage(spriteSheet.getSubimage(64, 32, SPRITE_SIZE_PX, SPRITE_SIZE_PX), null, CORE_X - 16, CORE_Y - 16);
 
             // TODO: check optimizations of Data-Oriented Design
             g2d.setColor(new Color(8627608));
@@ -531,11 +575,12 @@ class Game implements Runnable
             for (Asteroid asteroid : asteroids)
             {
                 if (!asteroid.isActive) continue;
-                g2d.setColor(new Color(6708308));
-                g2d.fillOval((int) asteroid.x - 25, (int) asteroid.y - 25, 50, 50);
+//                g2d.setColor(new Color(6708308));
+//                g2d.fillOval((int) asteroid.x - 25, (int) asteroid.y - 25, 50, 50);
+                g2d.drawImage(spriteSheet.getSubimage(32, 0, SPRITE_SIZE_PX, SPRITE_SIZE_PX), null, (int) asteroid.x - 16, (int) asteroid.y - 16);
 
                 // Print health bar only when asteroid is being drilled
-                if (asteroid.health > 0)
+                if (asteroid.health < 99)
                 {
                     g2d.setColor(Color.BLUE);
                     g2d.fillRect((int) (asteroid.x - 25), (int) (asteroid.y - 25), (int) (asteroid.health * 0.5F), 3);
@@ -545,8 +590,10 @@ class Game implements Runnable
             for (Enemy enemy : enemies)
             {
                 if (!enemy.isActive) continue;
-                g2d.setColor(Color.RED);
-                g2d.fillRect((int) (enemy.x - 10), (int) (enemy.y - 10), 20, 20);
+//                g2d.setColor(Color.RED);
+//                g2d.fillRect((int) (enemy.x - 10), (int) (enemy.y - 10), 20, 20);
+                g2d.drawImage(spriteSheet.getSubimage(32, 32, SPRITE_SIZE_PX, SPRITE_SIZE_PX), null, (int) (enemy.x - 16), (int) (enemy.y - 16));
+
                 g2d.setColor(Color.BLUE);
                 g2d.fillRect((int) (enemy.x - 25), (int) (enemy.y - 25), (int) (enemy.health * 0.5), 3);
             }
@@ -565,6 +612,17 @@ class Game implements Runnable
 
             g2d.setColor(Color.BLUE);
             g2d.fillRect((int) (dukesX - 25), (int) (dukesY - 25), (int) (dukesHealth * 0.5F), 3);
+
+            if (currentGameState == GameState.UPGRADE_MENU)
+            {
+                g2d.setColor(new Color(0x80000000, true));
+                g2d.fillRect(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+
+                // Draw upgrade cards
+                g2d.setColor(Color.RED);
+                g2d.drawRect((VIEWPORT_WIDTH / 2) - 320, 50, 300, VIEWPORT_HEIGHT - 100);
+                g2d.drawRect((VIEWPORT_WIDTH / 2) + 20, 50, 300, VIEWPORT_HEIGHT - 100);
+            }
 
             if (currentGameState == GameState.PAUSE_MENU)
             {
@@ -604,6 +662,8 @@ class Game implements Runnable
 //                CORE_X + " " + CORE_Y +
 //                " MLP: " + gameInput.mouseLeftPressed;
 //        g2d.drawString(sb, 0, 10);
+
+        g2d.drawImage(spriteSheet, null, 0, 0);
 
         g2d.dispose();
         bufferStrat.show();
