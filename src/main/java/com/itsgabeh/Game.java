@@ -9,7 +9,6 @@ import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -78,7 +77,7 @@ class Game implements Runnable {
     private int selectedSlot = 0;
     private int dukesBaseHealth = 100;
     private int dukesHealth = dukesBaseHealth;
-    private int dukesBaseFramesToShoot = 45;
+    private int dukesBaseFramesToShoot = 42;
     private int dukesFramesToShoot = 0;
     private final int dukesBaseBulletRadius = 1;
     private int dukesBulletRadius = dukesBaseBulletRadius;
@@ -230,13 +229,13 @@ class Game implements Runnable {
 
     private void physicsUpdate()
     {
-        if (currentWave >= 6)
+        if (currentWave > 6)
         {
             currentGameState = GAME_OVER_STATE;
             gameOverMsg = "Congratulations! YOU WON";
         }
 
-        if (dukesHealth <= 0)
+        if (dukesHealth <= 0 || starCoreHealth <= 0)
         {
             currentGameState = GAME_OVER_STATE;
             gameOverMsg = "Bad luck! YOU DIED";
@@ -263,8 +262,8 @@ class Game implements Runnable {
             directionY = magnitude > 0 ? (float) (directionY / magnitude) : directionY;
 
             // Move dukes pointing to the direction vector
-            dukesX += directionX * 1.25F;
-            dukesY += directionY * 1.25F;
+            dukesX += directionX * 1.2F;
+            dukesY += directionY * 1.2F;
 
             // Player can collide with core, but player is pushed back on collision
             if (isColliding(dukesX, STAR_CORE_X, dukesY, STAR_CORE_Y, (float) SPRITE_SIZE_PX / 2, (float) SPRITE_SIZE_PX))
@@ -360,7 +359,7 @@ class Game implements Runnable {
                 }
             }
 
-            // Move each active asteroid towards the center but not at all
+            // Move each active rock towards the center but not at all
             for (int i = 0; i < ROCKS_POOL_CAPACITY; i++)
             {
                 if (!rocksActive[i])
@@ -427,8 +426,8 @@ class Game implements Runnable {
 
                         int waveModifier = (int) (Math.random() * (currentWave + 1));
 
-                        enemiesDamage[i] = 2 + (waveModifier);
-                        enemiesHealth[i] = 35 + (2 * waveModifier);
+                        enemiesDamage[i] = 3 + (waveModifier);
+                        enemiesHealth[i] = 30 + (5 * waveModifier);
                         enemiesType[i] = waveModifier < ((currentWave / 2) + 1);
 
                         enemiesActive[i] = true;
@@ -794,7 +793,7 @@ class Game implements Runnable {
                 if (!rocksActive[i]) continue;
                 g2d.drawImage(rockSprite, null, (int) rocksX[i] - 16, (int) rocksY[i] - 16);
 
-                // Print health bar only when asteroid is being drilled
+                // Print health bar only when rock is being drilled
                 if (rocksHealth[i] < 99)
                 {
                     g2d.setColor(BLUE);
@@ -810,9 +809,9 @@ class Game implements Runnable {
 
                 // Render enemies based on the damage
                 BufferedImage sprite;
-                if (enemiesDamage[i] <= 2) sprite = blueEnemySprite;
-                else if (enemiesDamage[i] <= 3) sprite = greenEnemySprite;
-                else if (enemiesDamage[i] <= 4) sprite =yellowEnemySprite;
+                if (enemiesDamage[i] <= 4) sprite = blueEnemySprite;
+                else if (enemiesDamage[i] <= 5) sprite = greenEnemySprite;
+                else if (enemiesDamage[i] <= 6) sprite =yellowEnemySprite;
                 else sprite = redEnemySprite;
 
                 g2d.drawImage(sprite, null, (int) (enemiesX[i] - 16), (int) (enemiesY[i] - 16));
@@ -862,7 +861,7 @@ class Game implements Runnable {
 
             g2d.setFont(uiFont);
             g2d.setColor(FOREGROUND_1);
-            if (nextWaveTimer.isRunning()) g2d.drawString(String.valueOf(secondsToStartNextWave), STAR_CORE_X - 4, STAR_CORE_Y - 60);
+            if (nextWaveTimer.isRunning()) g2d.drawString(String.valueOf(secondsToStartNextWave), STAR_CORE_X - 6, STAR_CORE_Y - 60);
 
             g2d.drawImage(healthSprite, null, 20, VIEWPORT_HEIGHT - SPRITE_SIZE_PX - 10);
             g2d.drawString(dukesHealth + " / " + dukesBaseHealth, SPRITE_SIZE_PX + 20, VIEWPORT_HEIGHT - 20);
@@ -870,11 +869,13 @@ class Game implements Runnable {
             g2d.drawImage(damageSprite, null, 150, VIEWPORT_HEIGHT - SPRITE_SIZE_PX - 10);
             g2d.drawString(String.valueOf(dukesBulletDamage), SPRITE_SIZE_PX + 160, VIEWPORT_HEIGHT - 20);
 
-            g2d.drawImage(bulletSprite, null, 210, VIEWPORT_HEIGHT - SPRITE_SIZE_PX - 10);
-            g2d.drawString(String.valueOf(dukesBulletRadius), SPRITE_SIZE_PX + 210, VIEWPORT_HEIGHT - 20);
+            g2d.drawImage(bulletSprite, null, 220, VIEWPORT_HEIGHT - SPRITE_SIZE_PX - 10);
+            g2d.drawString(String.valueOf(dukesBulletRadius), SPRITE_SIZE_PX + 220, VIEWPORT_HEIGHT - 20);
 
             g2d.drawString("Wave: " + (currentWave + 1) + " / " + 7, VIEWPORT_WIDTH / 2 - 60, 20);
             g2d.drawString("Enemies: " + currentEnemiesKilled + " / " + ENEMIES_PER_WAVE[currentWave], VIEWPORT_WIDTH / 2 - 75, 40);
+
+            g2d.drawString("Core: " + starCoreHealth , VIEWPORT_WIDTH - 100, VIEWPORT_HEIGHT - 20);
 
             if (selectedSlot == 0) g2d.setColor(YELLOW);
             else g2d.setColor(FOREGROUND_1);
