@@ -484,7 +484,7 @@ class Game implements Runnable {
                 for (int j = 0; j < ROCKS_POOL_CAPACITY; j++)
                 {
                     if (!rocksActive[j]) continue;
-                    if (isColliding(rocksX[j], enemiesX[i], rocksY[j], enemiesY[i], SPRITE_SIZE_PX, (float) SPRITE_SIZE_PX / 2))
+                    if (isColliding(rocksX[j], enemiesX[i], rocksY[j], enemiesY[i], (float) SPRITE_SIZE_PX / 2, (float) SPRITE_SIZE_PX / 2))
                     {
                         float tempDirX = enemiesX[i] - rocksX[j];
                         float tempDirY = enemiesY[i] - rocksY[j];
