@@ -11,6 +11,7 @@ import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 
 class Game implements Runnable {
@@ -29,8 +30,8 @@ class Game implements Runnable {
     private final String[] UPGRADE_DESCRIPTIONS = {
             "Increase max health by 20",
             "Increase bullet damage by 5",
-            "Increase bullet size x2 (can help you with bloom)",
-            "Decrement Fire rate by 13%"
+            "Increase bullet size x2",
+            "Improve Fire rate by 13%"
     };
 
     // Color palette, see https://github.com/morhetz/gruvbox
@@ -43,6 +44,7 @@ class Game implements Runnable {
     private final Color BLUE_A = new Color(0x4D83A598, true);
     private final Color RED = new Color(0xcc241d);
     private final Color RED_A = new Color(0x4DCC241D, true);
+    private final Color YELLOW = new Color(0xfabd2f);
 
     private final int SPRITE_SIZE_PX = 32;
     private BufferedImage dukesSprite;
@@ -52,6 +54,9 @@ class Game implements Runnable {
     private BufferedImage yellowEnemySprite;
     private BufferedImage redEnemySprite;
     private BufferedImage starCoreSprite;
+    private BufferedImage healthSprite;
+    private BufferedImage bulletSprite;
+    private BufferedImage damageSprite;
 
     private final int ENEMIES_POOL_CAPACITY = 5;
     private final int[] ENEMIES_PER_WAVE = {5, 10, 15, 20, 25, 30, 40};
@@ -111,7 +116,6 @@ class Game implements Runnable {
     private final int[] enemiesHealth = new int[ENEMIES_POOL_CAPACITY];
     private final int[] enemiesDamage = new int[ENEMIES_POOL_CAPACITY];
     private final boolean[] enemiesType = new boolean[ENEMIES_POOL_CAPACITY];
-    private final int[] enemiesSprite = new int[ENEMIES_POOL_CAPACITY];
     private final int[] enemiesFramesToShoot = new int[ENEMIES_POOL_CAPACITY];
     private final float[] enemiesRotation = new float[ENEMIES_POOL_CAPACITY];
     private final boolean[] enemiesActive = new boolean[ENEMIES_POOL_CAPACITY];
@@ -121,6 +125,11 @@ class Game implements Runnable {
     private final boolean[] bgStarsActive = new boolean[20];
 
     private Clip dukesAudioClip;
+    private Clip upgradeAudioClip;
+    private Clip enemyAudioClip;
+
+    private final Font titleFont = new Font("Monospaced", Font.BOLD, 24);
+    private final Font uiFont = new Font("Monospaced", Font.BOLD, 16);
 
     public Game()
     {
@@ -128,29 +137,46 @@ class Game implements Runnable {
         nextWaveTimer = new Timer(1000, (ActionEvent _) -> secondsToStartNextWave--);
         nextWaveTimer.stop();
 
-        try
+        try (InputStream stream = getClass().getResourceAsStream("/SpriteSheet.png"))
         {
-            URL spriteSheetURL = getClass().getResource("/SpriteSheet.png");
-            if (spriteSheetURL != null)
-            {
-                BufferedImage spriteSheet = ImageIO.read(spriteSheetURL);
-                dukesSprite = spriteSheet.getSubimage(0, 0, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
-                rockSprite = spriteSheet.getSubimage(32, 0, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
-                blueEnemySprite = spriteSheet.getSubimage(64, 0, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
-                starCoreSprite = spriteSheet.getSubimage(64, 32, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
-            }
-            else System.out.println("Cannot load image");
-        } catch (Exception e)
+            if (stream == null) throw new RuntimeException("Cannot load sprite sheet!");
+            BufferedImage spriteSheet = ImageIO.read(stream);
+            dukesSprite = spriteSheet.getSubimage(0, 0, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
+            rockSprite = spriteSheet.getSubimage(32, 0, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
+            blueEnemySprite = spriteSheet.getSubimage(64, 0, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
+            greenEnemySprite = spriteSheet.getSubimage(96, 0, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
+            yellowEnemySprite = spriteSheet.getSubimage(0, 32, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
+            redEnemySprite = spriteSheet.getSubimage(32, 32, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
+            starCoreSprite = spriteSheet.getSubimage(64, 32, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
+            healthSprite = spriteSheet.getSubimage(96, 32, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
+            bulletSprite = spriteSheet.getSubimage(0, 64, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
+            damageSprite = spriteSheet.getSubimage(92, 64, SPRITE_SIZE_PX, SPRITE_SIZE_PX);
+        }
+        catch (IOException e)
         {
             e.printStackTrace();
         }
 
         try
         {
-            File file = new File("/home/gabeh/IdeaProjects/Dukes-8-bit-challenge/src/main/resources/laserShoot.wav");
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(file);
+            URL dukesShootWav = getClass().getResource("/laserShoot.wav");
+            if (dukesShootWav == null) throw new RuntimeException("Cannot load dukes shoot .wav file!");
+
+            AudioInputStream inputStream = AudioSystem.getAudioInputStream(dukesShootWav);
             dukesAudioClip = AudioSystem.getClip();
-            dukesAudioClip.open(audioInputStream);
+            dukesAudioClip.open(inputStream);
+
+            inputStream = AudioSystem.getAudioInputStream(dukesShootWav);
+            enemyAudioClip = AudioSystem.getClip();
+            enemyAudioClip.open(inputStream);
+
+            URL upgradeWav = getClass().getResource("/powerUp.wav");
+            if (upgradeWav == null) throw new RuntimeException("Cannot load upgrade .wav file!");
+
+            inputStream = AudioSystem.getAudioInputStream(upgradeWav);
+            upgradeAudioClip = AudioSystem.getClip();
+            upgradeAudioClip.open(inputStream);
+
         }
         catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
             e.printStackTrace();
@@ -174,7 +200,7 @@ class Game implements Runnable {
             enemiesHealth[i] = 30;
             enemiesActive[i] = true;
             enemiesType[i] = true;
-            enemiesDamage[i] = 5;
+            enemiesDamage[i] = 2;
             currentActiveEnemies += 1;
         }
 
@@ -269,12 +295,16 @@ class Game implements Runnable {
                 {
                     if (!bulletsActive[i])
                     {
-                       bulletsActive[i] = true;
-                       bulletsX[i] = dukesX;
-                       bulletsY[i] = dukesY;
-                       bulletsDirX[i] = (float) Math.cos(dukesRotationAngle);
-                       bulletsDirY[i] = (float) Math.sin(dukesRotationAngle);
-                       break;
+                        bulletsActive[i] = true;
+                        bulletsX[i] = dukesX;
+                        bulletsY[i] = dukesY;
+
+                        // Add rotation with a little bit of bloom
+                        double bloomWeight = Math.random();
+                        bulletsDirX[i] = (float) ((float) Math.cos(dukesRotationAngle + (bloomWeight > 0.5 ? 0.05 : -0.05)));
+                        bulletsDirY[i] = (float) ((float) Math.sin(dukesRotationAngle + (bloomWeight > 0.5 ? 0.05 : -0.05)));
+
+                        break;
                     }
                 }
 
@@ -368,7 +398,7 @@ class Game implements Runnable {
                     if (rocksHealth[i] > 0) rocksHealth[i] -= 1;
                     else
                     {
-                        dukesHealth += dukesHealth + 20 < dukesBaseHealth ? 20 : 0;
+                        dukesHealth += dukesHealth + 20 < dukesBaseHealth ? 20 : dukesBaseHealth - dukesHealth;
                         rocksActive[i] = false;
                         currentActiveRocks -= 1;
                     }
@@ -397,7 +427,7 @@ class Game implements Runnable {
 
                         int waveModifier = (int) (Math.random() * (currentWave + 1));
 
-                        enemiesDamage[i] = 5 + (waveModifier);
+                        enemiesDamage[i] = 2 + (waveModifier);
                         enemiesHealth[i] = 35 + (2 * waveModifier);
                         enemiesType[i] = waveModifier < ((currentWave / 2) + 1);
 
@@ -447,6 +477,9 @@ class Game implements Runnable {
                                 break;
                             }
                         }
+
+                        enemyAudioClip.setFramePosition(0);
+                        enemyAudioClip.start();
                     }
                 } else // enemy that impacts the core
                 {
@@ -524,6 +557,16 @@ class Game implements Runnable {
                 {
                     dukesHealth -= enemiesDamage[i];
                     enemyBulletsActive[i] = false;
+                }
+
+                if (isColliding(enemyBulletsX[i], STAR_CORE_X, enemyBulletsY[i], STAR_CORE_Y, 1, SPRITE_SIZE_PX * 2)) starCoreHealth -= enemiesDamage[i];
+
+                for (int j = 0; j < ROCKS_POOL_CAPACITY; j++)
+                {
+                    if (isColliding(enemyBulletsX[i], rocksX[j], enemyBulletsY[i], rocksY[j], 1, SPRITE_SIZE_PX)) {
+                        enemyBulletsActive[i] = false;
+                        break;
+                    }
                 }
             }
 
@@ -614,6 +657,9 @@ class Game implements Runnable {
                     case MORE_BULLETS_UPGRADE -> dukesBaseFramesToShoot -= 6;
                     default -> System.out.println("Not valid");
                 }
+
+                upgradeAudioClip.setFramePosition(0);
+                upgradeAudioClip.start();
             }
         }
         else if (currentGameState == GAME_OVER_STATE)
@@ -687,9 +733,8 @@ class Game implements Runnable {
 
         if (currentGameState == START_MENU_STATE)
         {
-            Font font = new Font(null, Font.PLAIN, 24);
-            g2d.setFont(font);
-            g2d.drawString("Space Ship Dukes", (VIEWPORT_WIDTH / 2) - 100 , 150);
+            g2d.setFont(titleFont);
+            g2d.drawString("Space Ship Duke", (VIEWPORT_WIDTH / 2) - 100 , 150);
 
             g2d.setColor(BACKGROUND_0);
             g2d.fillRect((VIEWPORT_WIDTH / 2) - 120, 200, 240, 50);
@@ -699,14 +744,12 @@ class Game implements Runnable {
         }
         else if (currentGameState == GAME_OVER_STATE)
         {
-            Font font = new Font(null, Font.PLAIN, 24);
-
             if (dukesHealth > 0 && starCoreHealth > 0) g2d.setColor(BLUE_A);
             else g2d.setColor(RED_A);
 
             g2d.fillRect(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 
-            g2d.setFont(font);
+            g2d.setFont(titleFont);
             g2d.drawString("GAME OVER!", (VIEWPORT_WIDTH / 2) - 100 , 125);
             g2d.drawString(gameOverMsg, (VIEWPORT_WIDTH / 2) - 100 , 150);
 
@@ -714,11 +757,11 @@ class Game implements Runnable {
             g2d.fillRect((VIEWPORT_WIDTH / 2) - 120, 200, 240, 50);
 
             g2d.setColor(FOREGROUND_1);
-            g2d.drawString("Main menu", (VIEWPORT_WIDTH / 2) - 75, VIEWPORT_HEIGHT / 2 + 24);
+            g2d.drawString("Main menu", (VIEWPORT_WIDTH / 2) - 75, 235);
         }
         else
         {
-            g2d.setFont(null);
+            g2d.setFont(uiFont);
 
             // Render dukes
             g2d.rotate(dukesRotationAngle, dukesX, dukesY);
@@ -754,7 +797,7 @@ class Game implements Runnable {
                 // Print health bar only when asteroid is being drilled
                 if (rocksHealth[i] < 99)
                 {
-                    g2d.setColor(Color.BLUE);
+                    g2d.setColor(BLUE);
                     g2d.fillRect((int) (rocksX[i] - 25), (int) (rocksY[i] - 25), (int) (rocksHealth[i] * 0.5F), 3);
                 }
             }
@@ -764,19 +807,19 @@ class Game implements Runnable {
             {
                 if (!enemiesActive[i]) continue;
                 g2d.rotate(enemiesRotation[i], enemiesX[i], enemiesY[i]);
-                g2d.drawImage(blueEnemySprite, null, (int) (enemiesX[i] - 16), (int) (enemiesY[i] - 16));
+
+                // Render enemies based on the damage
+                BufferedImage sprite;
+                if (enemiesDamage[i] <= 2) sprite = blueEnemySprite;
+                else if (enemiesDamage[i] <= 3) sprite = greenEnemySprite;
+                else if (enemiesDamage[i] <= 4) sprite =yellowEnemySprite;
+                else sprite = redEnemySprite;
+
+                g2d.drawImage(sprite, null, (int) (enemiesX[i] - 16), (int) (enemiesY[i] - 16));
                 g2d.setTransform(originalTransform);
 
                 g2d.setColor(BLUE);
                 g2d.fillRect((int) (enemiesX[i] - ((float) enemiesHealth[i] / 2)), (int) (enemiesY[i] - 25), enemiesHealth[i], 3);
-            }
-
-            int offset = 30;
-            for (int i = 0; i < 2; i++)
-            {
-                if (i == selectedSlot) g2d.setColor(Color.WHITE);
-                else g2d.setColor(Color.GRAY);
-                g2d.drawRect((VIEWPORT_WIDTH / 2) - (offset) + (offset * i), VIEWPORT_HEIGHT - offset - 10, offset, offset);
             }
 
             // Render duke health
@@ -798,42 +841,48 @@ class Game implements Runnable {
 
                 // Draw texts
                 g2d.setColor(FOREGROUND_1);
-                g2d.drawString(UPGRADE_NAMES[firstUpgradeSelectedIndex], (VIEWPORT_WIDTH / 2) - 280, (VIEWPORT_WIDTH / 2) - 50);
-                g2d.drawString(UPGRADE_NAMES[secondUpgradeSelectedIndex], (VIEWPORT_WIDTH / 2) + 60, (VIEWPORT_WIDTH / 2) - 50);
+                g2d.drawString(UPGRADE_NAMES[firstUpgradeSelectedIndex], (VIEWPORT_WIDTH / 2) - 300, (VIEWPORT_WIDTH / 2) - 50);
+                g2d.drawString(UPGRADE_NAMES[secondUpgradeSelectedIndex], (VIEWPORT_WIDTH / 2) + 40, (VIEWPORT_WIDTH / 2) - 50);
 
-                g2d.drawString(UPGRADE_DESCRIPTIONS[firstUpgradeSelectedIndex], (VIEWPORT_WIDTH / 2) - 280, (VIEWPORT_WIDTH / 2));
-                g2d.drawString(UPGRADE_DESCRIPTIONS[secondUpgradeSelectedIndex], (VIEWPORT_WIDTH / 2) + 60, (VIEWPORT_WIDTH / 2));
+                g2d.drawString(UPGRADE_DESCRIPTIONS[firstUpgradeSelectedIndex], (VIEWPORT_WIDTH / 2) - 300, (VIEWPORT_WIDTH / 2));
+                g2d.drawString(UPGRADE_DESCRIPTIONS[secondUpgradeSelectedIndex], (VIEWPORT_WIDTH / 2) + 40, (VIEWPORT_WIDTH / 2));
             }
 
             if (currentGameState == PAUSE_MENU_STATE)
             {
-                Font font = new Font(null, Font.PLAIN, 24);
-                g2d.setFont(font);
+                g2d.setFont(titleFont);
                 g2d.setColor(BACKGROUND0_A);
                 g2d.fillRect(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 
                 g2d.setColor(FOREGROUND_1);
-                g2d.drawString("Space Ship Dukes", (VIEWPORT_WIDTH / 2) - 100 , 150);
+                g2d.drawString("Space Ship Duke", (VIEWPORT_WIDTH / 2) - 100 , 150);
                 g2d.drawString("Pause Menu", (VIEWPORT_WIDTH / 2) - 100 , 200);
                 g2d.drawString("Press ESC to continue", (VIEWPORT_WIDTH / 2) - 100 , 225);
             }
 
+            g2d.setFont(uiFont);
             g2d.setColor(FOREGROUND_1);
-            g2d.drawString("Wave " + currentWave, VIEWPORT_WIDTH / 2 - 15, 15);
-            g2d.drawString("CEK: " + currentEnemiesKilled, VIEWPORT_WIDTH / 2 - 15, 30);
-            g2d.drawString("EPW: " + ENEMIES_PER_WAVE[currentWave], VIEWPORT_WIDTH / 2 - 15, 45);
-            g2d.drawString("CAE: " + currentActiveEnemies, VIEWPORT_WIDTH / 2 - 15, 60);
+            if (nextWaveTimer.isRunning()) g2d.drawString(String.valueOf(secondsToStartNextWave), STAR_CORE_X - 4, STAR_CORE_Y - 60);
 
-            if (nextWaveTimer.isRunning())
-            {
-                g2d.drawString(String.valueOf(secondsToStartNextWave), STAR_CORE_X - 4, STAR_CORE_Y - 60);
-            }
+            g2d.drawImage(healthSprite, null, 20, VIEWPORT_HEIGHT - SPRITE_SIZE_PX - 10);
+            g2d.drawString(dukesHealth + " / " + dukesBaseHealth, SPRITE_SIZE_PX + 20, VIEWPORT_HEIGHT - 20);
 
-            g2d.setFont(null);
-            String sb = "Health: " + dukesHealth + " / " + dukesBaseHealth +
-                    " Wave: " + currentWave +
-                    " Enemies: " + currentEnemiesKilled + " / " + ENEMIES_PER_WAVE[currentWave];
-            g2d.drawString(sb, 10, VIEWPORT_HEIGHT - 20);
+            g2d.drawImage(damageSprite, null, 150, VIEWPORT_HEIGHT - SPRITE_SIZE_PX - 10);
+            g2d.drawString(String.valueOf(dukesBulletDamage), SPRITE_SIZE_PX + 160, VIEWPORT_HEIGHT - 20);
+
+            g2d.drawImage(bulletSprite, null, 210, VIEWPORT_HEIGHT - SPRITE_SIZE_PX - 10);
+            g2d.drawString(String.valueOf(dukesBulletRadius), SPRITE_SIZE_PX + 210, VIEWPORT_HEIGHT - 20);
+
+            g2d.drawString("Wave: " + (currentWave + 1) + " / " + 7, VIEWPORT_WIDTH / 2 - 60, 20);
+            g2d.drawString("Enemies: " + currentEnemiesKilled + " / " + ENEMIES_PER_WAVE[currentWave], VIEWPORT_WIDTH / 2 - 75, 40);
+
+            if (selectedSlot == 0) g2d.setColor(YELLOW);
+            else g2d.setColor(FOREGROUND_1);
+            g2d.drawString("1: Laser", VIEWPORT_WIDTH / 2 + 50, VIEWPORT_HEIGHT - 20);
+
+            if (selectedSlot == 1) g2d.setColor(YELLOW);
+            else g2d.setColor(FOREGROUND_1);
+            g2d.drawString("2: Drill", VIEWPORT_WIDTH / 2 + 150, VIEWPORT_HEIGHT - 20);
         }
 
         g2d.dispose();
