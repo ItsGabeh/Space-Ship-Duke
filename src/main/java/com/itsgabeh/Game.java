@@ -627,10 +627,10 @@ class Game implements Runnable {
         }
         else if (currentGameState == UPGRADE_MENU_STATE)
         {
-            boolean isOverFirstOption = gameInput.mouseX >= (VIEWPORT_WIDTH / 2 - 320) && gameInput.mouseX <= (VIEWPORT_WIDTH / 2 - 20)
-                    && gameInput.mouseY >= 50 && gameInput.mouseY <= (VIEWPORT_HEIGHT - 100);
+            boolean isOverFirstOption = gameInput.mouseX >= (VIEWPORT_WIDTH / 2) - 320 && gameInput.mouseX <= (VIEWPORT_WIDTH / 2) - 20
+                    && gameInput.mouseY >= (VIEWPORT_WIDTH / 2) - 100 && gameInput.mouseY <= (VIEWPORT_WIDTH / 2) + 100;
             boolean isOverSecondOption = gameInput.mouseX >= (VIEWPORT_WIDTH / 2 + 20) && gameInput.mouseX <= (VIEWPORT_WIDTH / 2 + 320)
-                    && gameInput.mouseY >= 50 && gameInput.mouseY <= (VIEWPORT_HEIGHT - 100);
+                    && gameInput.mouseY >= (VIEWPORT_WIDTH / 2) - 100 && gameInput.mouseY <= (VIEWPORT_WIDTH / 2) + 100;
 
             int selectedIndex = -1;
             if (isOverFirstOption && gameInput.mouseLeftPressed)
