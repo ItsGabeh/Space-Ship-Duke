@@ -873,7 +873,7 @@ class Game implements Runnable {
             g2d.drawString(String.valueOf(dukesBulletRadius), SPRITE_SIZE_PX + 220, VIEWPORT_HEIGHT - 20);
 
             g2d.drawString("Wave: " + (currentWave + 1) + " / " + 7, VIEWPORT_WIDTH / 2 - 60, 20);
-            g2d.drawString("Enemies: " + currentEnemiesKilled + " / " + ENEMIES_PER_WAVE[currentWave], VIEWPORT_WIDTH / 2 - 75, 40);
+            g2d.drawString("Enemies: " + currentEnemiesKilled + " / " + ENEMIES_PER_WAVE[currentWave % 7], VIEWPORT_WIDTH / 2 - 75, 40);
 
             g2d.drawString("Core: " + starCoreHealth , VIEWPORT_WIDTH - 100, VIEWPORT_HEIGHT - 20);
 
